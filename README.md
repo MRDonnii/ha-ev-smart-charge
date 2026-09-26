@@ -24,21 +24,23 @@ men den kan bruges alene.
 
 ## Entiteter
 
+Entity-id'erne følger Home Assistants sprog, da integrationen blev tilføjet. På engelsk
+(med navnet "Gokart") ser de sådan ud:
+
 | Entity | Betydning |
 |---|---|
-| `number.<navn>_mal_soc` | Mål-SOC i %. |
-| `time.<navn>_klar_senest` | Klokkeslæt bilen skal være klar (næste forekomst). |
-| `number.<navn>_ladeeffekt` | Ladeeffekt i kW (standard 11). |
-| `number.<navn>_ladevirkningsgrad` | Virkningsgrad væg → batteri (standard 0,90). |
-| `number.<navn>_prisfaktor` | Ganges på elprisen, fx til en rabat hos en ladeoperatør (standard 1). |
-| `sensor.<navn>_bedste_ladestart` / `_forventet_ladeslut` | Tidsstempler for planen. |
-| `sensor.<navn>_bedste_ladestart_tekst` / `_forventet_ladeslut_tekst` | Samme som `HH:MM`. |
-| `sensor.<navn>_forventet_ladepris` | Pris for opladningen i elprisens valuta. |
-| `sensor.<navn>_mangler_fra_vaeggen` / `_mangler_i_batteriet` | kWh, der mangler for at nå målet. |
-| `sensor.<navn>_ladetid` | Ladetid i minutter. |
-| `binary_sensor.<navn>_saet_stikket_i_nu` | Tændt de 15 minutter før planlagt start. |
-
-De præcise entity-id'er afhænger af navn og sprog; se dem under integrationens enhed.
+| `number.gokart_target_soc` | Mål-SOC i %. |
+| `time.gokart_ready_by` | Klokkeslæt bilen skal være klar (næste forekomst). |
+| `number.gokart_charging_power` | Ladeeffekt i kW (standard 11). |
+| `number.gokart_charging_efficiency` | Virkningsgrad væg → batteri (standard 0,90). |
+| `number.gokart_price_factor` | Ganges på elprisen, fx rabat hos en ladeoperatør (standard 1). |
+| `sensor.gokart_best_charge_start` / `sensor.gokart_expected_charge_end` | Tidsstempler for planen. |
+| `sensor.gokart_best_charge_start_text` / `sensor.gokart_expected_charge_end_text` | Samme som `HH:MM`. |
+| `sensor.gokart_expected_charge_price` | Pris for opladningen i elprisens valuta. |
+| `sensor.gokart_missing_from_the_wall` / `sensor.gokart_missing_in_battery` | kWh, der mangler for at nå målet. |
+| `sensor.gokart_charging_time` | Ladetid i minutter. |
+| `sensor.gokart_ready_by_timestamp` | Næste deadline som tidsstempel. |
+| `binary_sensor.gokart_plug_in_now` | Tændt de 15 minutter før planlagt start. |
 
 ## Beregning
 
@@ -53,18 +55,18 @@ De præcise entity-id'er afhænger af navn og sprog; se dem under integrationens
 
 ```yaml
 entities:
-  best_charge_start: sensor.<navn>_bedste_ladestart_tekst
-  best_charge_end: sensor.<navn>_forventet_ladeslut_tekst
-  best_charge_price: sensor.<navn>_forventet_ladepris
-  missing_wall_kwh: sensor.<navn>_mangler_fra_vaeggen
-  charge_minutes_needed: sensor.<navn>_ladetid
+  best_charge_start: sensor.gokart_best_charge_start_text
+  best_charge_end: sensor.gokart_expected_charge_end_text
+  best_charge_price: sensor.gokart_expected_charge_price
+  missing_wall_kwh: sensor.gokart_missing_from_the_wall
+  charge_minutes_needed: sensor.gokart_charging_time
 controls:
-  target_soc: number.<navn>_mal_soc
-  deadline: time.<navn>_klar_senest
+  target_soc: number.gokart_target_soc
+  deadline: time.gokart_ready_by
 ```
 
 Integrationen styrer ikke laderen. Den beregner kun planen; start/stop kan laves med en
-automation, der fx reagerer på `sensor.<navn>_bedste_ladestart`.
+automation, der fx reagerer på `sensor.gokart_best_charge_start`.
 
 ## Licens
 
