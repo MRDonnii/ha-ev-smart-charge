@@ -1,0 +1,12 @@
+{
+  "domain": "ev_smart_charge",
+  "name": "EV Smart Charge",
+  "codeowners": ["@MRDonnii"],
+  "config_flow": true,
+  "documentation": "https://github.com/MRDonnii/ha-ev-smart-charge",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/MRDonnii/ha-ev-smart-charge/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

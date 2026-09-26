@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart ladeplan",
+        "description": "Vælg bilens batterisensor (%) og en eller flere elpris-sensorer med prisliste i attributterne (fx Strømligning, Nord Pool eller Energi Data Service).",
+        "data": {
+          "name": "Navn (fx bilens navn)",
+          "battery_entity": "Batteriniveau (%)",
+          "price_entities": "Elpris-sensorer (i dag og i morgen)",
+          "battery_capacity_kwh": "Brugbar batterikapacitet"
+        }
+      }
+    },
+    "error": {
+      "not_numeric": "Sensoren har ikke en numerisk værdi.",
+      "no_prices": "Ingen af sensorerne har en prisliste i attributterne."
+    },
+    "abort": {
+      "already_configured": "Denne bil er allerede sat op."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smart ladeplan",
+        "data": {
+          "battery_entity": "Batteriniveau (%)",
+          "price_entities": "Elpris-sensorer (i dag og i morgen)",
+          "battery_capacity_kwh": "Brugbar batterikapacitet"
+        }
+      }
+    },
+    "error": {
+      "not_numeric": "Sensoren har ikke en numerisk værdi.",
+      "no_prices": "Ingen af sensorerne har en prisliste i attributterne."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "best_charge_start": {
+        "name": "Bedste ladestart"
+      },
+      "best_charge_end": {
+        "name": "Forventet ladeslut"
+      },
+      "best_charge_start_text": {
+        "name": "Bedste ladestart (tekst)"
+      },
+      "best_charge_end_text": {
+        "name": "Forventet ladeslut (tekst)"
+      },
+      "best_charge_price": {
+        "name": "Forventet ladepris"
+      },
+      "missing_battery_kwh": {
+        "name": "Mangler i batteriet"
+      },
+      "missing_wall_kwh": {
+        "name": "Mangler fra væggen"
+      },
+      "charge_minutes_needed": {
+        "name": "Ladetid"
+      },
+      "ready_by": {
+        "name": "Klar senest (tidspunkt)"
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Mål-SOC"
+      },
+      "charge_power_kw": {
+        "name": "Ladeeffekt"
+      },
+      "efficiency": {
+        "name": "Ladevirkningsgrad"
+      },
+      "price_factor": {
+        "name": "Prisfaktor"
+      }
+    },
+    "time": {
+      "ready_by_time": {
+        "name": "Klar senest"
+      }
+    },
+    "binary_sensor": {
+      "plug_in_now": {
+        "name": "Sæt stikket i nu"
+      }
+    }
+  }
+}

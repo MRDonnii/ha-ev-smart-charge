@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EV smart charge plan",
+        "description": "Pick the car's battery sensor (%) and one or more electricity price sensors that carry a price list in their attributes (e.g. Strømligning, Nord Pool or Energi Data Service).",
+        "data": {
+          "name": "Name (e.g. the car's name)",
+          "battery_entity": "Battery level (%)",
+          "price_entities": "Price sensors (today and tomorrow)",
+          "battery_capacity_kwh": "Usable battery capacity"
+        }
+      }
+    },
+    "error": {
+      "not_numeric": "The sensor does not have a numeric state.",
+      "no_prices": "None of the sensors has a price list in its attributes."
+    },
+    "abort": {
+      "already_configured": "This car is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EV smart charge plan",
+        "data": {
+          "battery_entity": "Battery level (%)",
+          "price_entities": "Price sensors (today and tomorrow)",
+          "battery_capacity_kwh": "Usable battery capacity"
+        }
+      }
+    },
+    "error": {
+      "not_numeric": "The sensor does not have a numeric state.",
+      "no_prices": "None of the sensors has a price list in its attributes."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "best_charge_start": {
+        "name": "Best charge start"
+      },
+      "best_charge_end": {
+        "name": "Expected charge end"
+      },
+      "best_charge_start_text": {
+        "name": "Best charge start (text)"
+      },
+      "best_charge_end_text": {
+        "name": "Expected charge end (text)"
+      },
+      "best_charge_price": {
+        "name": "Expected charge price"
+      },
+      "missing_battery_kwh": {
+        "name": "Missing in battery"
+      },
+      "missing_wall_kwh": {
+        "name": "Missing from the wall"
+      },
+      "charge_minutes_needed": {
+        "name": "Charging time"
+      },
+      "ready_by": {
+        "name": "Ready by (timestamp)"
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Target SOC"
+      },
+      "charge_power_kw": {
+        "name": "Charging power"
+      },
+      "efficiency": {
+        "name": "Charging efficiency"
+      },
+      "price_factor": {
+        "name": "Price factor"
+      }
+    },
+    "time": {
+      "ready_by_time": {
+        "name": "Ready by"
+      }
+    },
+    "binary_sensor": {
+      "plug_in_now": {
+        "name": "Plug in now"
+      }
+    }
+  }
+}
