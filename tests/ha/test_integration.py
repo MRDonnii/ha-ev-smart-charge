@@ -173,3 +173,13 @@ async def test_vehicle_model_is_guessed_from_the_car(hass: HomeAssistant, reques
     assert attrs["vehicle_model"] == "model_3_rwd"
     assert attrs["vehicle_body"] == "model_3"
     assert attrs["battery_capacity_kwh"] == 60  # the configured capacity still wins
+
+
+async def test_alternative_plans_are_priced(hass: HomeAssistant, request):
+    await setup(hass, request, charger=False, cheap_now=False)
+    alternatives = hass.states.get("sensor.bil_planned_charge_cost").attributes["alternatives"]
+    assert set(alternatives) == {"now", "smart", "fixed", "price_cap"}
+    # 20 kWh: now at 3 kr/kWh, the cheapest plan in the 0.5 kr hour and the default 22-06 window
+    assert alternatives["now"]["cost"] > alternatives["smart"]["cost"]
+    assert alternatives["smart"]["cost"] == float(hass.states.get("sensor.bil_planned_charge_cost").state)
+    assert alternatives["fixed"]["start"] is not None

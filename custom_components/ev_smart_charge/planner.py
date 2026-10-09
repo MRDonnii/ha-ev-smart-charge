@@ -123,6 +123,7 @@ class ChargePlanner:
         self.trip = TripState()
         self.result = PlanResult(None, None, None, None, None, None)
         self.schedule = Schedule()
+        self.alternatives: dict[str, Schedule] = {}
         self.deadline: datetime | None = None
         self.price_unit: str | None = None
         self.slot_count = 0
@@ -382,10 +383,10 @@ class ChargePlanner:
             return False
         return state.state.lower() in PLUGGED_STATES or state.state in ("unknown", "unavailable")
 
-    def constraints(self, now: datetime) -> tuple[Constraint, ...]:
+    def constraints(self, now: datetime, mode: str | None = None) -> tuple[Constraint, ...]:
         target = self.settings["target_soc"]
         result = []
-        if self.mode in (MODE_SMART, MODE_MANUAL):
+        if (mode or self.mode) in (MODE_SMART, MODE_MANUAL):
             result.append(Constraint(self.deadline, target))
         if self.trip_active and self.trip.departure > now:
             trip_target = self.trip_target_soc
@@ -441,20 +442,28 @@ class ChargePlanner:
         window = fixed_window(now, self.times["fixed_start"], self.times["fixed_end"])
         constraints = self.constraints(now)
         horizon = max([self.deadline, window[1], *(c.deadline for c in constraints)])
-        self.schedule = build_schedule(ScheduleInput(
-            mode=self.mode,
-            soc=soc,
-            target_soc=self.settings["target_soc"],
-            capacity_kwh=self.capacity,
-            efficiency=self.settings["efficiency"],
-            power_kw=self.settings["charge_power_kw"],
-            price_factor=self.settings["price_factor"],
-            timeline=build_timeline(now, ordered, horizon),
-            constraints=constraints,
-            window=window if self.mode == MODE_FIXED else None,
-            price_cap=self.settings["price_cap"],
-            min_soc=self.settings["min_soc"],
-        ), now)
+        timeline = build_timeline(now, ordered, horizon)
+
+        def plan_for(mode: str) -> Schedule:
+            return build_schedule(ScheduleInput(
+                mode=mode,
+                soc=soc,
+                target_soc=self.settings["target_soc"],
+                capacity_kwh=self.capacity,
+                efficiency=self.settings["efficiency"],
+                power_kw=self.settings["charge_power_kw"],
+                price_factor=self.settings["price_factor"],
+                timeline=timeline,
+                constraints=constraints if mode == self.mode else self.constraints(now, mode),
+                window=window if mode == MODE_FIXED else None,
+                price_cap=self.settings["price_cap"],
+                min_soc=self.settings["min_soc"],
+            ), now)
+
+        self.schedule = plan_for(self.mode)
+        # What the other plans would cost right now, so they can be compared before choosing.
+        self.alternatives = {mode: self.schedule if mode == self.mode else plan_for(mode)
+                             for mode in (MODE_NOW, MODE_SMART, MODE_FIXED, MODE_PRICE_CAP)}
 
         self._control(now)
         for update in list(self._listeners):

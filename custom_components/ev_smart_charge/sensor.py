@@ -155,6 +155,16 @@ class PlanSensor(EvSmartChargeListenerEntity, SensorEntity):
                 "estimated_prices": schedule.estimated,
                 "shortfall_kwh": schedule.shortfall_kwh,
             }
+        if key == "planned_cost":
+            return {"alternatives": {
+                mode: {
+                    "cost": plan.cost, "energy_kwh": plan.energy_kwh, "estimated": plan.estimated,
+                    "start": plan.blocks[0].start.isoformat() if plan.blocks else None,
+                    "end": plan.blocks[-1].end.isoformat() if plan.blocks else None,
+                    "blocks": len(plan.blocks), "shortfall_kwh": plan.shortfall_kwh,
+                }
+                for mode, plan in planner.alternatives.items()
+            }}
         if key == "trip_distance":
             route = planner.trip.route
             return {
