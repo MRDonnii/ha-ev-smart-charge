@@ -3,18 +3,31 @@
     "step": {
       "user": {
         "title": "Smart ladeplan",
-        "description": "Vælg bilens batterisensor (%) og en eller flere elpris-sensorer med prisliste i attributterne (fx Strømligning, Nord Pool eller Energi Data Service).",
+        "description": "Vælg bilens batterisensor (%) og en eller flere elpris-sensorer med prisliste i attributterne (fx Strømligning, Nord Pool eller Energi Data Service). Styring af laderen er valgfri.",
         "data": {
           "name": "Navn (fx bilens navn)",
           "battery_entity": "Batteriniveau (%)",
           "price_entities": "Elpris-sensorer (i dag og i morgen)",
-          "battery_capacity_kwh": "Brugbar batterikapacitet"
+          "battery_capacity_kwh": "Brugbar batterikapacitet",
+          "charger_type": "Styring af laderen",
+          "zaptec_mode_entity": "Zaptec-laderens tilstandssensor",
+          "charge_switch": "Ladekontakt",
+          "car_plugged_entity": "Bilens tilslutnings-sensor (valgfri)"
+        },
+        "data_description": {
+          "charger_type": "Uden styring beregner integrationen kun planen.",
+          "zaptec_mode_entity": "Laderens sensor \"Charger mode\" fra Zaptec-integrationen. Ladekontakten og godkend-knappen på samme lader findes automatisk.",
+          "charge_switch": "En kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP, Monta eller Easee.",
+          "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke."
         }
       }
     },
     "error": {
       "not_numeric": "Sensoren har ikke en numerisk værdi.",
-      "no_prices": "Ingen af sensorerne har en prisliste i attributterne."
+      "no_prices": "Ingen af sensorerne har en prisliste i attributterne.",
+      "required_for_zaptec": "Vælg Zaptec-laderens tilstandssensor.",
+      "zaptec_switch_missing": "Der blev ikke fundet en ladekontakt på denne Zaptec-lader.",
+      "required_for_switch": "Vælg ladekontakten."
     },
     "abort": {
       "already_configured": "Denne bil er allerede sat op."
@@ -27,13 +40,40 @@
         "data": {
           "battery_entity": "Batteriniveau (%)",
           "price_entities": "Elpris-sensorer (i dag og i morgen)",
-          "battery_capacity_kwh": "Brugbar batterikapacitet"
+          "battery_capacity_kwh": "Brugbar batterikapacitet",
+          "charger_type": "Styring af laderen",
+          "zaptec_mode_entity": "Zaptec-laderens tilstandssensor",
+          "charge_switch": "Ladekontakt",
+          "car_plugged_entity": "Bilens tilslutnings-sensor (valgfri)"
+        },
+        "data_description": {
+          "charger_type": "Uden styring beregner integrationen kun planen.",
+          "zaptec_mode_entity": "Laderens sensor \"Charger mode\" fra Zaptec-integrationen. Ladekontakten og godkend-knappen på samme lader findes automatisk.",
+          "charge_switch": "En kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP, Monta eller Easee.",
+          "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke."
         }
       }
     },
     "error": {
       "not_numeric": "Sensoren har ikke en numerisk værdi.",
-      "no_prices": "Ingen af sensorerne har en prisliste i attributterne."
+      "no_prices": "Ingen af sensorerne har en prisliste i attributterne.",
+      "required_for_zaptec": "Vælg Zaptec-laderens tilstandssensor.",
+      "zaptec_switch_missing": "Der blev ikke fundet en ladekontakt på denne Zaptec-lader.",
+      "required_for_switch": "Vælg ladekontakten."
+    }
+  },
+  "selector": {
+    "charger_type": {
+      "options": {
+        "none": "Ingen (kun plan)",
+        "zaptec": "Zaptec",
+        "switch": "Kontakt (OCPP, Monta, ...)"
+      }
+    }
+  },
+  "exceptions": {
+    "departure_out_of_range": {
+      "message": "Afgangen skal ligge ude i fremtiden og højst 14 dage frem."
     }
   },
   "entity": {
@@ -64,6 +104,47 @@
       },
       "ready_by": {
         "name": "Klar senest (tidspunkt)"
+      },
+      "next_charge_start": {
+        "name": "Næste ladestart"
+      },
+      "next_charge_end": {
+        "name": "Næste ladeslut"
+      },
+      "planned_cost": {
+        "name": "Planlagt ladepris"
+      },
+      "planned_energy": {
+        "name": "Planlagt energi"
+      },
+      "plan_target_soc": {
+        "name": "Planens mål-SOC"
+      },
+      "trip_distance": {
+        "name": "Turens afstand"
+      },
+      "trip_energy": {
+        "name": "Turens energiforbrug"
+      },
+      "trip_target_soc": {
+        "name": "SOC turen kræver"
+      },
+      "charge_status": {
+        "name": "Ladestatus",
+        "state": {
+          "plan_only": "Kun plan",
+          "manual": "Manuel",
+          "disconnected": "Ikke tilsluttet",
+          "other_car": "En anden bil er tilsluttet",
+          "unknown": "Ukendt",
+          "charging": "Lader",
+          "stopped_externally": "Stoppet af bilen eller appen",
+          "not_responding": "Laderen svarer ikke",
+          "paused": "På pause",
+          "starting": "Starter",
+          "done": "Mål nået",
+          "waiting": "Venter på billig strøm"
+        }
       }
     },
     "number": {
@@ -78,16 +159,73 @@
       },
       "price_factor": {
         "name": "Prisfaktor"
+      },
+      "price_cap": {
+        "name": "Prisloft"
+      },
+      "min_soc": {
+        "name": "Minimum-SOC"
+      },
+      "consumption": {
+        "name": "Forbrug"
+      },
+      "trip_margin": {
+        "name": "Sikkerhedsmargin på tur"
+      },
+      "trip_reserve": {
+        "name": "Reserve ved ankomst"
       }
     },
     "time": {
       "ready_by_time": {
         "name": "Klar senest"
+      },
+      "fixed_start": {
+        "name": "Fast ladestart"
+      },
+      "fixed_end": {
+        "name": "Fast ladeslut"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Ladeplan",
+        "state": {
+          "smart": "Billigst inden afgang",
+          "fixed": "Fast tidspunkt",
+          "now": "Lad nu",
+          "price_cap": "Prisloft",
+          "off": "Pause",
+          "manual": "Manuel (styres ikke)"
+        }
+      }
+    },
+    "datetime": {
+      "trip_departure": {
+        "name": "Midlertidig afgang"
+      }
+    },
+    "text": {
+      "trip_destination": {
+        "name": "Turens destination"
+      }
+    },
+    "switch": {
+      "trip_round_trip": {
+        "name": "Tur/retur"
+      }
+    },
+    "button": {
+      "trip_clear": {
+        "name": "Ryd midlertidig plan"
       }
     },
     "binary_sensor": {
       "plug_in_now": {
         "name": "Sæt stikket i nu"
+      },
+      "charge_now": {
+        "name": "Lad nu-signal"
       }
     }
   }

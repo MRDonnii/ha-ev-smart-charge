@@ -3,18 +3,31 @@
     "step": {
       "user": {
         "title": "EV smart charge plan",
-        "description": "Pick the car's battery sensor (%) and one or more electricity price sensors that carry a price list in their attributes (e.g. Strømligning, Nord Pool or Energi Data Service).",
+        "description": "Pick the car's battery sensor (%) and one or more electricity price sensors that carry a price list in their attributes (e.g. Strømligning, Nord Pool or Energi Data Service). Charger control is optional.",
         "data": {
           "name": "Name (e.g. the car's name)",
           "battery_entity": "Battery level (%)",
           "price_entities": "Price sensors (today and tomorrow)",
-          "battery_capacity_kwh": "Usable battery capacity"
+          "battery_capacity_kwh": "Usable battery capacity",
+          "charger_type": "Charger control",
+          "zaptec_mode_entity": "Zaptec charger mode sensor",
+          "charge_switch": "Charging switch",
+          "car_plugged_entity": "Car plugged-in sensor (optional)"
+        },
+        "data_description": {
+          "charger_type": "Without charger control the integration only calculates the plan.",
+          "zaptec_mode_entity": "The charger's \"Charger mode\" sensor from the Zaptec integration. The charging switch and the authorise button on the same charger are found automatically.",
+          "charge_switch": "A switch that starts (on) and stops (off) charging, e.g. from OCPP, Monta or Easee.",
+          "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone."
         }
       }
     },
     "error": {
       "not_numeric": "The sensor does not have a numeric state.",
-      "no_prices": "None of the sensors has a price list in its attributes."
+      "no_prices": "None of the sensors has a price list in its attributes.",
+      "required_for_zaptec": "Pick the Zaptec charger mode sensor.",
+      "zaptec_switch_missing": "No charging switch was found on this Zaptec charger.",
+      "required_for_switch": "Pick the charging switch."
     },
     "abort": {
       "already_configured": "This car is already configured."
@@ -27,13 +40,40 @@
         "data": {
           "battery_entity": "Battery level (%)",
           "price_entities": "Price sensors (today and tomorrow)",
-          "battery_capacity_kwh": "Usable battery capacity"
+          "battery_capacity_kwh": "Usable battery capacity",
+          "charger_type": "Charger control",
+          "zaptec_mode_entity": "Zaptec charger mode sensor",
+          "charge_switch": "Charging switch",
+          "car_plugged_entity": "Car plugged-in sensor (optional)"
+        },
+        "data_description": {
+          "charger_type": "Without charger control the integration only calculates the plan.",
+          "zaptec_mode_entity": "The charger's \"Charger mode\" sensor from the Zaptec integration. The charging switch and the authorise button on the same charger are found automatically.",
+          "charge_switch": "A switch that starts (on) and stops (off) charging, e.g. from OCPP, Monta or Easee.",
+          "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone."
         }
       }
     },
     "error": {
       "not_numeric": "The sensor does not have a numeric state.",
-      "no_prices": "None of the sensors has a price list in its attributes."
+      "no_prices": "None of the sensors has a price list in its attributes.",
+      "required_for_zaptec": "Pick the Zaptec charger mode sensor.",
+      "zaptec_switch_missing": "No charging switch was found on this Zaptec charger.",
+      "required_for_switch": "Pick the charging switch."
+    }
+  },
+  "selector": {
+    "charger_type": {
+      "options": {
+        "none": "None (plan only)",
+        "zaptec": "Zaptec",
+        "switch": "Switch (OCPP, Monta, ...)"
+      }
+    }
+  },
+  "exceptions": {
+    "departure_out_of_range": {
+      "message": "The departure must be in the future and at most 14 days ahead."
     }
   },
   "entity": {
@@ -64,6 +104,47 @@
       },
       "ready_by": {
         "name": "Ready by (timestamp)"
+      },
+      "next_charge_start": {
+        "name": "Next charge start"
+      },
+      "next_charge_end": {
+        "name": "Next charge end"
+      },
+      "planned_cost": {
+        "name": "Planned charge cost"
+      },
+      "planned_energy": {
+        "name": "Planned charge energy"
+      },
+      "plan_target_soc": {
+        "name": "Plan target SOC"
+      },
+      "trip_distance": {
+        "name": "Trip distance"
+      },
+      "trip_energy": {
+        "name": "Trip energy"
+      },
+      "trip_target_soc": {
+        "name": "Trip SOC needed"
+      },
+      "charge_status": {
+        "name": "Charge status",
+        "state": {
+          "plan_only": "Plan only",
+          "manual": "Manual",
+          "disconnected": "Not plugged in",
+          "other_car": "Another car is plugged in",
+          "unknown": "Unknown",
+          "charging": "Charging",
+          "stopped_externally": "Stopped by the car or app",
+          "not_responding": "Charger does not respond",
+          "paused": "Paused",
+          "starting": "Starting",
+          "done": "Target reached",
+          "waiting": "Waiting for cheap power"
+        }
       }
     },
     "number": {
@@ -78,16 +159,73 @@
       },
       "price_factor": {
         "name": "Price factor"
+      },
+      "price_cap": {
+        "name": "Price cap"
+      },
+      "min_soc": {
+        "name": "Minimum SOC"
+      },
+      "consumption": {
+        "name": "Consumption"
+      },
+      "trip_margin": {
+        "name": "Trip safety margin"
+      },
+      "trip_reserve": {
+        "name": "Arrival reserve"
       }
     },
     "time": {
       "ready_by_time": {
         "name": "Ready by"
+      },
+      "fixed_start": {
+        "name": "Fixed charging start"
+      },
+      "fixed_end": {
+        "name": "Fixed charging end"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Charge mode",
+        "state": {
+          "smart": "Cheapest before departure",
+          "fixed": "Fixed time",
+          "now": "Charge now",
+          "price_cap": "Price cap",
+          "off": "Pause",
+          "manual": "Manual (not controlled)"
+        }
+      }
+    },
+    "datetime": {
+      "trip_departure": {
+        "name": "Temporary departure"
+      }
+    },
+    "text": {
+      "trip_destination": {
+        "name": "Trip destination"
+      }
+    },
+    "switch": {
+      "trip_round_trip": {
+        "name": "Round trip"
+      }
+    },
+    "button": {
+      "trip_clear": {
+        "name": "Clear temporary plan"
       }
     },
     "binary_sensor": {
       "plug_in_now": {
         "name": "Plug in now"
+      },
+      "charge_now": {
+        "name": "Charge now"
       }
     }
   }

@@ -1,4 +1,4 @@
-"""EV Smart Charge: cheapest charging window before a deadline, from any electricity price sensor."""
+"""EV Smart Charge: charge plans from any electricity price sensor, optionally controlling the charger."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from homeassistant.core import HomeAssistant
 
 from .planner import ChargePlanner
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.NUMBER, Platform.SENSOR, Platform.TIME]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DATETIME, Platform.NUMBER, Platform.SELECT,
+             Platform.SENSOR, Platform.SWITCH, Platform.TEXT, Platform.TIME]
 
 type EvSmartChargeConfigEntry = ConfigEntry[ChargePlanner]
 

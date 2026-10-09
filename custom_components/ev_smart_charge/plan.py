@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
+from itertools import groupby
 
 SLOT = timedelta(minutes=15)
 # Windows whose total price differs by less than this are treated as equal; the later one wins,
@@ -153,3 +154,241 @@ def calculate(data: PlanInput, now: datetime) -> PlanResult:
         remaining -= kwh
     return PlanResult(**result, start=start, end=start + timedelta(minutes=minutes),
                       price=round(cost, 2))
+
+
+# ---------------------------------------------------------------------------------------------
+# Charge schedules (0.2): quarter-hour slots picked per charge mode, also non-contiguous.
+# ---------------------------------------------------------------------------------------------
+
+MODE_SMART = "smart"
+MODE_FIXED = "fixed"
+MODE_NOW = "now"
+MODE_PRICE_CAP = "price_cap"
+MODE_OFF = "off"
+MODE_MANUAL = "manual"
+MODES = (MODE_SMART, MODE_FIXED, MODE_NOW, MODE_PRICE_CAP, MODE_OFF, MODE_MANUAL)
+
+# How many days back an unknown price may be borrowed from (same clock time).
+ESTIMATE_DAYS_BACK = 7
+
+
+@dataclass(frozen=True)
+class TimelineSlot:
+    start: datetime
+    end: datetime
+    price: float
+    estimated: bool
+
+
+@dataclass(frozen=True)
+class Constraint:
+    """The battery must hold target_soc when the deadline is reached."""
+
+    deadline: datetime
+    target_soc: float
+
+
+@dataclass(frozen=True)
+class ScheduleInput:
+    mode: str
+    soc: float | None
+    target_soc: float
+    capacity_kwh: float
+    efficiency: float
+    power_kw: float
+    price_factor: float
+    timeline: list[TimelineSlot]
+    constraints: tuple[Constraint, ...] = ()
+    window: tuple[datetime, datetime] | None = None
+    price_cap: float | None = None
+    min_soc: float | None = None
+
+
+@dataclass(frozen=True)
+class PlannedSlot:
+    start: datetime
+    end: datetime
+    kwh: float
+    price: float
+    estimated: bool
+
+
+@dataclass(frozen=True)
+class ChargeBlock:
+    start: datetime
+    end: datetime
+    kwh: float
+    cost: float
+    estimated: bool
+
+
+@dataclass(frozen=True)
+class Schedule:
+    slots: tuple[PlannedSlot, ...] = ()
+    blocks: tuple[ChargeBlock, ...] = ()
+    charge_now: bool = False
+    energy_kwh: float = 0.0
+    cost: float | None = None
+    estimated: bool = False
+    target_soc: float | None = None
+    shortfall_kwh: float = 0.0
+
+    def next_block(self, now: datetime) -> ChargeBlock | None:
+        return next((block for block in self.blocks if block.end > now), None)
+
+
+def floor_quarter(value: datetime) -> datetime:
+    utc = value.astimezone(UTC)
+    return utc.replace(minute=utc.minute - utc.minute % 15, second=0, microsecond=0)
+
+
+def build_timeline(now: datetime, known: list[PriceSlot], horizon: datetime) -> list[TimelineSlot]:
+    """Quarter-hour slots from the current quarter until horizon. A slot without a published price
+    borrows the price at the same clock time on an earlier day, or the mean of the known prices."""
+    by_start = {slot.start: slot.price for slot in known}
+    mean = sum(by_start.values()) / len(by_start) if by_start else 0.0
+    end = max(horizon, max((slot.end for slot in known), default=horizon))
+    timeline: list[TimelineSlot] = []
+    cursor = floor_quarter(now)
+    zone = now.tzinfo
+    while cursor < end:
+        start, finish = cursor.astimezone(zone), (cursor + SLOT).astimezone(zone)
+        if cursor in by_start:
+            timeline.append(TimelineSlot(start, finish, by_start[cursor], False))
+        else:
+            price = next((by_start[earlier] for days in range(1, ESTIMATE_DAYS_BACK + 1)
+                          if (earlier := cursor - timedelta(days=days)) in by_start), mean)
+            timeline.append(TimelineSlot(start, finish, price, True))
+        cursor += SLOT
+    return timeline
+
+
+def fixed_window(now: datetime, start: time, end: time) -> tuple[datetime, datetime]:
+    """The fixed charging window that contains now, otherwise the next one. end <= start wraps midnight."""
+    today = now.date()
+    candidates = []
+    for offset in (-1, 0, 1):
+        day = today + timedelta(days=offset)
+        begin = datetime.combine(day, start, tzinfo=now.tzinfo)
+        finish_day = day + timedelta(days=1) if end <= start else day
+        candidates.append((begin, datetime.combine(finish_day, end, tzinfo=now.tzinfo)))
+    return next(window for window in candidates if window[1] > now)
+
+
+def _slot_kwh(slot: TimelineSlot, now: datetime, power_kw: float) -> float:
+    minutes = (slot.end - max(slot.start, now)).total_seconds() / 60
+    return max(minutes, 0.0) * power_kw / 60
+
+
+def build_schedule(data: ScheduleInput, now: datetime) -> Schedule:
+    """Pick the slots to charge in. Every mode except off and now also has to meet the constraints
+    (ready-by time, temporary trip); missing energy is then bought in the cheapest slots in time."""
+    if data.mode == MODE_OFF:
+        return Schedule()
+    charge_now = data.mode == MODE_NOW
+    if data.soc is None or data.capacity_kwh <= 0 or data.power_kw <= 0 or data.efficiency <= 0:
+        return Schedule(charge_now=charge_now)
+
+    def wall(target: float | None) -> float:
+        if target is None:
+            return 0.0
+        return max(target - data.soc, 0.0) * data.capacity_kwh / 100 / data.efficiency
+
+    usable = [slot for slot in data.timeline if slot.end > now]
+    kwh = {slot.start: _slot_kwh(slot, now, data.power_kw) for slot in usable}
+    chosen: dict[datetime, TimelineSlot] = {}
+
+    def energy(before: datetime | None = None) -> float:
+        return sum(kwh[start] for start, slot in chosen.items() if before is None or slot.end <= before)
+
+    def take(candidates, need: float, key, before: datetime | None = None) -> None:
+        have = energy(before)
+        pool = [slot for slot in candidates if slot.start not in chosen and kwh[slot.start] > 0]
+        for _, group in groupby(sorted(pool, key=key), key=lambda slot: key(slot)[0]):
+            group = list(group)
+            while group and have < need - 1e-9:
+                # Among equal prices, extend an already chosen block before opening a new one, so the
+                # charger is started and stopped as few times as possible.
+                slot = next((item for item in group if item.start in ends or item.end in starts), group[0])
+                group.remove(slot)
+                chosen[slot.start] = slot
+                have += kwh[slot.start]
+                starts.add(slot.start)
+                ends.add(slot.end)
+            if have >= need - 1e-9:
+                return
+
+    starts: set[datetime] = set()
+    ends: set[datetime] = set()
+
+    def chronological(slot: TimelineSlot):
+        return (slot.start,)
+
+    def cheapest(slot: TimelineSlot):
+        # Equal prices: the later slot wins, so the battery sits full for as short a time as possible.
+        return (round(slot.price, 6), -slot.start.timestamp())
+
+    need = 0.0
+    if data.mode == MODE_NOW:
+        need = wall(data.target_soc)
+        take(usable, need, chronological)
+    elif data.mode == MODE_FIXED and data.window:
+        begin, finish = data.window
+        need = wall(data.target_soc)
+        take([slot for slot in usable if slot.end > begin and slot.start < finish], need, chronological)
+    elif data.mode == MODE_PRICE_CAP:
+        if data.min_soc is not None and data.soc < data.min_soc:
+            take(usable, wall(data.min_soc), chronological)
+        if data.price_cap is not None:
+            need = wall(data.target_soc)
+            cheap = [slot for slot in usable
+                     if not slot.estimated and slot.price * data.price_factor <= data.price_cap + 1e-9]
+            take(cheap, need, chronological)
+        need = max(need, wall(data.min_soc))
+
+    shortfall = 0.0
+    top = data.target_soc if data.mode != MODE_PRICE_CAP or data.price_cap is not None else data.min_soc
+    if data.mode != MODE_NOW:
+        for constraint in sorted(data.constraints, key=lambda item: item.deadline):
+            target_kwh = wall(constraint.target_soc)
+            before = [slot for slot in usable if slot.end <= constraint.deadline]
+            take(before, target_kwh, cheapest, constraint.deadline)
+            shortfall = max(shortfall, target_kwh - energy(constraint.deadline))
+            need = max(need, target_kwh)
+            top = max(top or 0.0, constraint.target_soc)
+
+    # Charging happens in time order and stops when the energy is in the battery.
+    remaining = need
+    planned: list[PlannedSlot] = []
+    for slot in sorted(chosen.values(), key=lambda item: item.start):
+        if remaining <= 1e-9:
+            break
+        amount = min(kwh[slot.start], remaining)
+        remaining -= amount
+        begin = max(slot.start, now)
+        finish = begin + timedelta(hours=amount / data.power_kw)
+        planned.append(PlannedSlot(begin, min(finish, slot.end), amount, slot.price, slot.estimated))
+
+    blocks: list[ChargeBlock] = []
+    for slot in planned:
+        cost = slot.kwh * slot.price * data.price_factor
+        if blocks and blocks[-1].end >= slot.start:
+            last = blocks[-1]
+            blocks[-1] = ChargeBlock(last.start, slot.end, last.kwh + slot.kwh, last.cost + cost,
+                                     last.estimated or slot.estimated)
+        else:
+            blocks.append(ChargeBlock(slot.start, slot.end, slot.kwh, cost, slot.estimated))
+
+    if not charge_now:
+        charge_now = any(slot.start <= now < slot.end for slot in planned)
+    total = sum(slot.kwh for slot in planned)
+    return Schedule(
+        slots=tuple(planned),
+        blocks=tuple(blocks),
+        charge_now=charge_now,
+        energy_kwh=round(total, 2),
+        cost=round(sum(block.cost for block in blocks), 2) if planned else None,
+        estimated=any(slot.estimated for slot in planned),
+        target_soc=top,
+        shortfall_kwh=round(max(shortfall, 0.0), 2),
+    )

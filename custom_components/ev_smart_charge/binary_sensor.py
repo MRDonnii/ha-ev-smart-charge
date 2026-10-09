@@ -1,4 +1,4 @@
-"""Plug-in reminder: on during the 15 minutes before the planned start."""
+"""Plug-in reminder (on during the 15 minutes before the planned start) and "charge now" signal."""
 
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ from .entity import EvSmartChargeListenerEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: EvSmartChargeConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
-    async_add_entities([PlugInNow(entry.runtime_data, "plug_in_now")])
+    async_add_entities([PlugInNow(entry.runtime_data, "plug_in_now"),
+                        ChargeNow(entry.runtime_data, "charge_now")])
 
 
 class PlugInNow(EvSmartChargeListenerEntity, BinarySensorEntity):
@@ -25,3 +26,13 @@ class PlugInNow(EvSmartChargeListenerEntity, BinarySensorEntity):
     def is_on(self) -> bool:
         start = self.planner.result.start
         return bool(start) and start - timedelta(minutes=15) <= dt_util.now() <= start
+
+
+class ChargeNow(EvSmartChargeListenerEntity, BinarySensorEntity):
+    """On while the plan wants the car to charge. Usable for own automations without charger control."""
+
+    _attr_icon = "mdi:battery-charging"
+
+    @property
+    def is_on(self) -> bool:
+        return self.planner.charge_desired
