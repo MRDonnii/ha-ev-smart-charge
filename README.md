@@ -1,5 +1,11 @@
 # EV Smart Charge
 
+> **EV Smart Charge er flyttet ind i [EV Ledger](https://github.com/MRDonnii/evledger)** (fra v0.3.0-beta1)
+> som valgfri funktion "Smart opladning". EV Ledger kender i forvejen bilen, laderen og elprisen, så
+> opsætningen er kortere, og ladehistorik og -planer hænger sammen. Denne integration virker stadig,
+> men udvikles ikke videre. Flyt en bil: slå smart opladning til i EV Ledger (Konfigurer → Smart
+> opladning) og deaktivér bilen her; entiteterne har de samme navne.
+
 Home Assistant-integration, der planlægger opladningen af en elbil efter elprisen og (valgfrit)
 selv starter og stopper laderen. Den virker med enhver bil, der har en batterisensor i %, og
 enhver elpris-sensor med en prisliste i attributterne (fx Strømligning, Nord Pool eller Energi

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Funktionerne er flyttet ind i EV Ledger (v0.3.0-beta1) som "Smart opladning". Denne integration
+  virker stadig, men udvikles ikke videre.
+
 ## 0.3.0
 
 - Når kablet sættes i, kører Billigst; en anden plan går tilbage til Billigst, når kablet tages ud.
