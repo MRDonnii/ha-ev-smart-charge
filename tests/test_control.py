@@ -14,7 +14,7 @@ def minutes(n: float) -> datetime:
 
 
 def started(state=S.PAUSED):
-    c = control.Controller()
+    c = control.Controller(start_delay=timedelta(0))
     c.observe(state, T0)
     return c
 
@@ -36,8 +36,8 @@ def test_retries_then_gives_up():
 def test_stops_when_not_wanted():
     c = started(S.CHARGING)
     assert c.decide(False, T0) == A.STOP
-    assert c.decide(False, minutes(1)) == A.NONE
-    assert c.observe(S.PAUSED, minutes(1)) is None
+    assert c.decide(False, minutes(0.5)) == A.NONE
+    assert c.observe(S.PAUSED, minutes(0.6)) is None
 
 
 def test_manual_start_is_reported():
@@ -73,3 +73,19 @@ def test_disconnected_charger_gets_no_commands():
 def test_first_observation_is_not_an_event():
     c = control.Controller()
     assert c.observe(S.CHARGING, T0) is None
+
+
+def test_start_waits_until_the_plan_has_wanted_it_a_while():
+    c = control.Controller()
+    c.observe(S.PAUSED, T0)
+    assert c.decide(True, T0) == A.NONE
+    assert c.decide(False, T0 + timedelta(seconds=2)) == A.NONE  # a setting passed through for a moment
+    assert c.decide(True, T0 + timedelta(seconds=3)) == A.NONE
+    assert c.decide(True, T0 + timedelta(seconds=19)) == A.START
+
+
+def test_a_stop_that_did_not_take_is_repeated_soon():
+    c = started(S.CHARGING)
+    assert c.decide(False, T0) == A.STOP
+    assert c.decide(False, minutes(0.5)) == A.NONE
+    assert c.decide(False, minutes(1)) == A.STOP

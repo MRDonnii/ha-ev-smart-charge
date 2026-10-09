@@ -13,7 +13,7 @@ from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
 
 from . import trip, vehicles
@@ -37,6 +37,7 @@ from .const import (
     DEFAULT_TARGET_SOC,
     DEFAULT_TRIP_MARGIN,
     DEFAULT_TRIP_RESERVE,
+    START_DELAY_SECONDS,
     STARTUP_GRACE_SECONDS,
     STATUS_CHARGING,
     STATUS_DISCONNECTED,
@@ -132,8 +133,9 @@ class ChargePlanner:
         self.charger_state = ChargerState.UNKNOWN
         self.car_present = True
         self.backend: ChargerBackend | None = None
-        self.controller = Controller()
+        self.controller = Controller(start_delay=timedelta(seconds=START_DELAY_SECONDS))
         self._hold_until: datetime | None = None
+        self._recheck: CALLBACK_TYPE | None = None
         self._guessed: vehicles.Vehicle | None = None
         self._started_at: datetime | None = None
         self._listeners: list[Callable[[], None]] = []
@@ -230,9 +232,17 @@ class ChargePlanner:
     def async_stop(self) -> None:
         while self._unsubs:
             self._unsubs.pop()()
+        if self._recheck:
+            self._recheck()
+            self._recheck = None
 
     @callback
     def _on_state(self, _event: Event) -> None:
+        self.async_recalculate()
+
+    @callback
+    def _on_recheck(self, _now) -> None:
+        self._recheck = None
         self.async_recalculate()
 
     @callback
@@ -515,6 +525,10 @@ class ChargePlanner:
             return
         action = self.controller.decide(desired, now)
         if action == Action.NONE:
+            if desired and (wait := self.controller.start_wait(now)) and self.charger_state != ChargerState.CHARGING:
+                self.status = STATUS_STARTING
+                if self._recheck is None:
+                    self._recheck = async_call_later(self.hass, wait.total_seconds() + 1, self._on_recheck)
             return
         _LOGGER.info("%s: %s charging (mode %s, charger %s)", self.entry.title, action, self.mode, state)
         if action == Action.START:

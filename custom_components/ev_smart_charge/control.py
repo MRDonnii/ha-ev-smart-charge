@@ -38,6 +38,11 @@ class Controller:
     did not come from here is reported, so the plan can follow the user instead of fighting them."""
 
     retry_after: timedelta = timedelta(minutes=3)
+    # A stop that did not take (e.g. sent seconds after a start) is repeated sooner than a start.
+    stop_retry_after: timedelta = timedelta(seconds=45)
+    # The plan must want charging this long before a start is sent, so a setting that is only
+    # passed through for a moment (a time being typed) never starts the charger.
+    start_delay: timedelta = timedelta(seconds=15)
     own_command_window: timedelta = timedelta(minutes=5)
     max_start_attempts: int = 3
 
@@ -47,6 +52,7 @@ class Controller:
     start_attempts: int = 0
     blocked: bool = False  # the car or the user stopped the charging; do not restart on our own
     last_desired: bool | None = None
+    desired_since: datetime | None = None
 
     def _own(self, action: Action, now: datetime) -> bool:
         return (self.last_command == action and self.last_command_at is not None
@@ -83,21 +89,32 @@ class Controller:
     def decide(self, desired: bool, now: datetime) -> Action:
         if desired != self.last_desired:
             self.last_desired = desired
+            self.desired_since = now if desired else None
             self.reset()
         state = self.state
         if state not in CONNECTED:
             return Action.NONE
-        waiting = self.last_command_at is not None and now - self.last_command_at < self.retry_after
+        since = None if self.last_command_at is None else now - self.last_command_at
         if desired and state != ChargerState.CHARGING:
-            if self.blocked or self.gave_up or (waiting and self.last_command == Action.START):
+            if self.blocked or self.gave_up or (since is not None and since < self.retry_after
+                                                 and self.last_command == Action.START):
+                return Action.NONE
+            if self.start_wait(now):
                 return Action.NONE
             self.start_attempts += 1
             return self._command(Action.START, now)
         if not desired and state == ChargerState.CHARGING:
-            if waiting and self.last_command == Action.STOP:
+            if since is not None and since < self.stop_retry_after and self.last_command == Action.STOP:
                 return Action.NONE
             return self._command(Action.STOP, now)
         return Action.NONE
+
+    def start_wait(self, now: datetime) -> timedelta | None:
+        """How long a wanted start still has to wait, or None when it may go now."""
+        if self.desired_since is None:
+            return None
+        left = self.desired_since + self.start_delay - now
+        return left if left > timedelta(0) else None
 
     def _command(self, action: Action, now: datetime) -> Action:
         self.last_command, self.last_command_at = action, now

@@ -31,7 +31,7 @@ def prices(cheap_now: bool) -> list[dict]:
 
 
 async def setup(hass: HomeAssistant, request, charger_state="connected_finished", charger=True, cheap_now=True,
-                soc="50", grace=0):
+                soc="50", grace=0, start_delay=0):
     hass.states.async_set("sensor.car_battery", soc)
     hass.states.async_set("sensor.price", "1.0", {"prices": prices(cheap_now), "unit_of_measurement": "kr/kWh"})
     options = {"battery_entity": "sensor.car_battery", "price_entities": ["sensor.price"],
@@ -60,9 +60,10 @@ async def setup(hass: HomeAssistant, request, charger_state="connected_finished"
     request.addfinalizer(patcher.stop)
     entry = MockConfigEntry(domain=DOMAIN, title="Bil", data=options, unique_id="sensor.car_battery")
     entry.add_to_hass(hass)
-    grace_patch = patch.object(planner_module, "STARTUP_GRACE_SECONDS", grace)
-    grace_patch.start()
-    request.addfinalizer(grace_patch.stop)
+    for name, value in (("STARTUP_GRACE_SECONDS", grace), ("START_DELAY_SECONDS", start_delay)):
+        patcher = patch.object(planner_module, name, value)
+        patcher.start()
+        request.addfinalizer(patcher.stop)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     return entry, calls
@@ -183,3 +184,13 @@ async def test_alternative_plans_are_priced(hass: HomeAssistant, request):
     assert alternatives["now"]["cost"] > alternatives["smart"]["cost"]
     assert alternatives["smart"]["cost"] == float(hass.states.get("sensor.bil_planned_charge_cost").state)
     assert alternatives["fixed"]["start"] is not None
+
+
+async def test_start_waits_for_a_steady_plan(hass: HomeAssistant, request, freezer):
+    _, calls = await setup(hass, request, start_delay=15)
+    assert not calls["switch.turn_on"]
+    assert state(hass, "sensor.bil_charge_status") == "starting"
+    freezer.tick(timedelta(seconds=17))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert calls["switch.turn_on"] == [SWITCH]

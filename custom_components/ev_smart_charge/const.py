@@ -34,6 +34,8 @@ DEFAULT_TRIP_RESERVE = 10.0
 
 # Wait this long after start-up before sending commands, so charger and car states have settled.
 STARTUP_GRACE_SECONDS = 60
+# The plan must want charging this long before a start is sent (see control.Controller).
+START_DELAY_SECONDS = 15
 
 STATUS_PLAN_ONLY = "plan_only"
 STATUS_MANUAL = "manual"
