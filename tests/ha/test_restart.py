@@ -60,7 +60,7 @@ async def test_unplugged_while_down_ends_charge_now(hass: HomeAssistant, request
     restore(hass, [State("select.bil_charge_mode", "now",
                          {"mode_before_now": "fixed", "now_seen_connected": True})])
     await setup(hass, request, charger_state="disconnected")
-    assert state(hass, "select.bil_charge_mode") == "fixed"
+    assert state(hass, "select.bil_charge_mode") == "smart", "a temporary plan that has run returns to the cheapest"
 
 
 async def test_charge_now_set_before_plugging_in_waits_for_the_car(hass: HomeAssistant, request):
@@ -117,3 +117,12 @@ async def test_missing_prices_after_restart_do_not_stop_charging(hass: HomeAssis
 async def test_no_commands_in_the_first_minute_after_start(hass: HomeAssistant, request):
     _, calls = await setup(hass, request, charger_state="connected_charging", cheap_now=False, grace=60)
     assert not calls
+
+
+async def test_open_phone_question_survives(hass: HomeAssistant, request):
+    since = dt_util.now() - timedelta(minutes=5)
+    restore(hass, [State("switch.bil_confirm_plan_on_phone", "on", {"awaiting_since": since.isoformat()})])
+    _, calls = await setup(hass, request, charger_state="connected_requesting", cheap_now=True)
+    assert state(hass, "switch.bil_confirm_plan_on_phone") == "on"
+    assert state(hass, "sensor.bil_charge_status") == "awaiting_confirmation"
+    assert not calls["button.press"]

@@ -1,4 +1,4 @@
-"""Whether the temporary trip is a round trip."""
+"""Switches: round trip for the temporary trip, and confirming new plans on the phone."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
 from . import EvSmartChargeConfigEntry
 from .entity import EvSmartChargeListenerEntity
@@ -15,7 +16,8 @@ from .entity import EvSmartChargeListenerEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: EvSmartChargeConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
-    async_add_entities([TripRoundTrip(entry.runtime_data, "trip_round_trip")])
+    async_add_entities([TripRoundTrip(entry.runtime_data, "trip_round_trip"),
+                        ConfirmOnPhone(entry.runtime_data, "confirm_on_phone")])
 
 
 class TripRoundTrip(EvSmartChargeListenerEntity, SwitchEntity, RestoreEntity):
@@ -36,3 +38,35 @@ class TripRoundTrip(EvSmartChargeListenerEntity, SwitchEntity, RestoreEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self.planner.async_set_trip_round_trip(False)
+
+
+class ConfirmOnPhone(EvSmartChargeListenerEntity, SwitchEntity, RestoreEntity):
+    """When on, a plugged-in car waits for an answer on the chosen phones before charging."""
+
+    _attr_icon = "mdi:cellphone-check"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state == "on":
+            self.planner.confirm_enabled = True
+            # A question still open before a restart stays open.
+            if since := dt_util.parse_datetime(str(last.attributes.get("awaiting_since") or "")):
+                self.planner.awaiting_since = since
+
+    @property
+    def is_on(self) -> bool:
+        return self.planner.confirm_enabled
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "awaiting_since": self.planner.awaiting_since.isoformat() if self.planner.awaiting_since else None,
+            "phones": self.planner.notify.targets,
+        }
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.planner.async_set_confirm(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.planner.async_set_confirm(False)

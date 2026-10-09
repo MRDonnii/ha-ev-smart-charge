@@ -79,6 +79,21 @@ bilen eller appen opladningen, forsøger integrationen ikke at starte igen, før
 eller kablet har været taget ud. Svarer laderen ikke efter tre forsøg med tre minutters mellemrum,
 opgives det (status *Laderen svarer ikke*).
 
+## Når kablet sættes i
+
+Uden andet valg kører **Billigst inden afgang**. En anden plan (Lad nu, Fast tid, Prisloft, Pause)
+gælder, til kablet tages ud; derefter går integrationen tilbage til Billigst. En plan, der vælges,
+mens kablet er ude, bruges ved næste tilslutning. *Manuel* bliver stående.
+
+### Bekræft på mobil
+
+Vælg under **Konfigurer** de mobiler (Companion-appens `notify.mobile_app_*`), der skal spørges,
+og evt. **Kun mobiler der er hjemme**. Slå `switch.<bil>_confirm_plan_on_phone` til. Når bilen
+sættes til, får mobilerne planen med prisen for Billigst og Lad nu og knapperne *Bekræft billigst*,
+*Lad nu* og *Pause*. Laderen venter på svaret; uden svar kører Billigst efter 60 minutter.
+`button.<bil>_confirm_plan` bekræfter fra Home Assistant. Et svar fjerner notifikationen på de
+andre mobiler.
+
 ## Midlertidig plan (tur)
 
 Sæt `datetime.<bil>_temporary_departure` og eventuelt `text.<bil>_trip_destination`

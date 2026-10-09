@@ -24,6 +24,8 @@ from .const import (
     CONF_CAR_PLUGGED_ENTITY,
     CONF_CHARGE_SWITCH,
     CONF_CHARGER_TYPE,
+    CONF_NOTIFY_ONLY_HOME,
+    CONF_NOTIFY_SERVICES,
     CONF_PRICE_ENTITIES,
     CONF_VEHICLE_MODEL,
     CONF_ZAPTEC_MODE_ENTITY,
@@ -59,7 +61,7 @@ def car_entities(hass, device_id: str) -> tuple[str | None, str | None, str | No
     return device.name_by_user or device.name, battery, plug
 
 
-def _schema(defaults: dict[str, Any], with_name: bool) -> vol.Schema:
+def _schema(defaults: dict[str, Any], with_name: bool, phones: list[str] | None = None) -> vol.Schema:
     fields: dict = {}
     if with_name:
         fields[vol.Optional(CONF_NAME, description={"suggested_value": defaults.get(CONF_NAME)})] = str
@@ -88,7 +90,18 @@ def _schema(defaults: dict[str, Any], with_name: bool) -> vol.Schema:
         selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", integration="zaptec")))
     fields[vol.Optional(CONF_CHARGE_SWITCH, description={"suggested_value": defaults.get(CONF_CHARGE_SWITCH)})] = (
         selector.EntitySelector(selector.EntitySelectorConfig(domain="switch")))
+    options = sorted(set(phones or []) | set(defaults.get(CONF_NOTIFY_SERVICES) or []))
+    fields[vol.Optional(CONF_NOTIFY_SERVICES, description={"suggested_value": defaults.get(CONF_NOTIFY_SERVICES)})] = (
+        selector.SelectSelector(selector.SelectSelectorConfig(options=options, multiple=True, custom_value=True,
+                                                              mode=selector.SelectSelectorMode.DROPDOWN)))
+    fields[vol.Optional(CONF_NOTIFY_ONLY_HOME, default=bool(defaults.get(CONF_NOTIFY_ONLY_HOME, False)))] = (
+        selector.BooleanSelector())
     return vol.Schema(fields)
+
+
+def _phones(hass) -> list[str]:
+    """Companion app notify services, e.g. mobile_app_my_phone."""
+    return sorted(name for name in hass.services.async_services().get("notify", {}) if name.startswith("mobile_app_"))
 
 
 def _link_car(hass, user_input: dict[str, Any], previous: dict[str, Any]) -> dict[str, Any]:
@@ -154,7 +167,7 @@ class EvSmartChargeConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 name = user_input.pop(CONF_NAME) or "Smart ladeplan"
                 return self.async_create_entry(title=name, data=_clean(user_input))
-        return self.async_show_form(step_id="user", data_schema=_schema(user_input or {}, True),
+        return self.async_show_form(step_id="user", data_schema=_schema(user_input or {}, True, _phones(self.hass)),
                                     errors=errors)
 
     @staticmethod
@@ -174,4 +187,5 @@ class EvSmartChargeOptionsFlow(OptionsFlow):
                 return self.async_create_entry(data=_clean(user_input))
             current = {key: value for key, value in current.items() if key not in OPTIONAL_ENTITIES}
             current.update(user_input)
-        return self.async_show_form(step_id="init", data_schema=_schema(current, False), errors=errors)
+        return self.async_show_form(step_id="init", data_schema=_schema(current, False, _phones(self.hass)),
+                                    errors=errors)

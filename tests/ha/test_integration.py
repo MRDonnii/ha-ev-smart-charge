@@ -194,3 +194,47 @@ async def test_start_waits_for_a_steady_plan(hass: HomeAssistant, request, freez
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert calls["switch.turn_on"] == [SWITCH]
+
+
+async def test_any_temporary_plan_returns_to_cheapest_after_unplug(hass: HomeAssistant, request):
+    await setup(hass, request, cheap_now=False)
+    await hass.services.async_call("select", "select_option",
+                                   {"entity_id": "select.bil_charge_mode", "option": "fixed"}, blocking=True)
+    hass.states.async_set(MODE, "disconnected")
+    await hass.async_block_till_done()
+    assert state(hass, "select.bil_charge_mode") == "smart"
+    # chosen while unplugged: kept for the next time the car is plugged in
+    await hass.services.async_call("select", "select_option",
+                                   {"entity_id": "select.bil_charge_mode", "option": "fixed"}, blocking=True)
+    hass.states.async_set(MODE, "connected_requesting")
+    await hass.async_block_till_done()
+    assert state(hass, "select.bil_charge_mode") == "fixed"
+
+
+async def test_confirm_on_phone(hass: HomeAssistant, request):
+    sent = []
+
+    async def fake_notify(call):
+        sent.append((call.service, call.data))
+
+    hass.services.async_register("notify", "mobile_app_a", fake_notify)
+    hass.services.async_register("notify", "mobile_app_b", fake_notify)
+    hass.states.async_set("device_tracker.a", "home")
+    hass.states.async_set("device_tracker.b", "not_home")
+    entry, calls = await setup(hass, request, charger_state="disconnected", cheap_now=True)
+    hass.config_entries.async_update_entry(entry, options={
+        **entry.data, "notify_services": ["mobile_app_a", "mobile_app_b"], "notify_only_home": True})
+    await hass.async_block_till_done()
+    await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.bil_confirm_plan_on_phone"},
+                                   blocking=True)
+    hass.states.async_set(MODE, "connected_requesting")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert [service for service, _ in sent] == ["mobile_app_a"], "only the phone that is home"
+    assert state(hass, "sensor.bil_charge_status") == "awaiting_confirmation"
+    assert not calls["button.press"], "nothing starts before the answer, even in a cheap hour"
+    actions = [action["action"] for action in sent[0][1]["data"]["actions"]]
+    hass.bus.async_fire("mobile_app_notification_action", {"action": actions[0]})
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert state(hass, "sensor.bil_charge_status") != "awaiting_confirmation"
+    assert calls["button.press"], "confirmed: the cheapest plan runs (cheap now)"
+    assert sent[-1][1]["message"] == "clear_notification"

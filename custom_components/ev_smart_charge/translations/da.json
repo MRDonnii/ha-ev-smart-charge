@@ -14,7 +14,9 @@
           "charger_type": "Styring af laderen",
           "zaptec_mode_entity": "Zaptec-laderens tilstandssensor",
           "charge_switch": "Ladekontakt",
-          "vehicle_model": "Bilmodel"
+          "vehicle_model": "Bilmodel",
+          "notify_services": "Mobiler der skal bekræfte planen",
+          "notify_only_home": "Kun mobiler der er hjemme"
         },
         "data_description": {
           "car_device": "Vælg bilens enhed: batteri- og stik-sensor og navn udfyldes selv. Tilføj integrationen én gang pr. bil; flere biler kan dele samme lader.",
@@ -24,7 +26,9 @@
           "charge_switch": "En kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP, Monta eller Easee.",
           "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke.",
           "vehicle_model": "Automatisk vælger Tesla-modellen ud fra bilens enhed og rækkevidde. Anden bil: angiv kapaciteten herunder.",
-          "battery_capacity_kwh": "Lad feltet stå tomt for at bruge modellens kapacitet."
+          "battery_capacity_kwh": "Lad feltet stå tomt for at bruge modellens kapacitet.",
+          "notify_services": "Companion-apps, der får planen som notifikation med Bekræft, Lad nu og Pause, når bilen sættes til, og \"Bekræft plan på mobil\" er slået til.",
+          "notify_only_home": "Spring mobiler over, hvis appen ikke melder dem hjemme."
         }
       }
     },
@@ -53,7 +57,9 @@
           "charger_type": "Styring af laderen",
           "zaptec_mode_entity": "Zaptec-laderens tilstandssensor",
           "charge_switch": "Ladekontakt",
-          "vehicle_model": "Bilmodel"
+          "vehicle_model": "Bilmodel",
+          "notify_services": "Mobiler der skal bekræfte planen",
+          "notify_only_home": "Kun mobiler der er hjemme"
         },
         "data_description": {
           "car_device": "Vælg bilens enhed: batteri- og stik-sensor og navn udfyldes selv. Tilføj integrationen én gang pr. bil; flere biler kan dele samme lader.",
@@ -63,7 +69,9 @@
           "charge_switch": "En kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP, Monta eller Easee.",
           "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke.",
           "vehicle_model": "Automatisk vælger Tesla-modellen ud fra bilens enhed og rækkevidde. Anden bil: angiv kapaciteten herunder.",
-          "battery_capacity_kwh": "Lad feltet stå tomt for at bruge modellens kapacitet."
+          "battery_capacity_kwh": "Lad feltet stå tomt for at bruge modellens kapacitet.",
+          "notify_services": "Companion-apps, der får planen som notifikation med Bekræft, Lad nu og Pause, når bilen sættes til, og \"Bekræft plan på mobil\" er slået til.",
+          "notify_only_home": "Spring mobiler over, hvis appen ikke melder dem hjemme."
         }
       }
     },
@@ -157,7 +165,8 @@
           "paused": "På pause",
           "starting": "Starter",
           "done": "Mål nået",
-          "waiting": "Venter på billig strøm"
+          "waiting": "Venter på billig strøm",
+          "awaiting_confirmation": "Venter på bekræftelse"
         }
       }
     },
@@ -227,11 +236,17 @@
     "switch": {
       "trip_round_trip": {
         "name": "Tur/retur"
+      },
+      "confirm_on_phone": {
+        "name": "Bekræft plan på mobil"
       }
     },
     "button": {
       "trip_clear": {
         "name": "Ryd midlertidig plan"
+      },
+      "confirm_plan": {
+        "name": "Bekræft plan"
       }
     },
     "binary_sensor": {

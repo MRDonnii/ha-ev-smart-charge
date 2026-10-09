@@ -24,6 +24,7 @@ from .const import (
     CONF_CAR_PLUGGED_ENTITY,
     CONF_PRICE_ENTITIES,
     CONF_VEHICLE_MODEL,
+    CONFIRM_TIMEOUT_MINUTES,
     DEFAULT_CAPACITY,
     DEFAULT_CONSUMPTION,
     DEFAULT_EFFICIENCY,
@@ -39,6 +40,7 @@ from .const import (
     DEFAULT_TRIP_RESERVE,
     START_DELAY_SECONDS,
     STARTUP_GRACE_SECONDS,
+    STATUS_AWAITING_CONFIRMATION,
     STATUS_CHARGING,
     STATUS_DISCONNECTED,
     STATUS_DONE,
@@ -55,6 +57,7 @@ from .const import (
 )
 from .control import CONNECTED, Action, ChargerState, Controller
 from .control import Event as ChargerEvent
+from .phone import PhoneNotifier
 from .plan import (
     MODE_FIXED,
     MODE_MANUAL,
@@ -118,9 +121,13 @@ class ChargePlanner:
         }
         self.mode = MODE_SMART
         self.mode_before_now = MODE_SMART
-        # Set once the charger has been connected while in "charge now"; a disconnect after that ends it.
-        # Stored with the select entity, so an unplug while Home Assistant was down is noticed too.
+        # Set once the charger has been connected while a temporary plan (anything but the cheapest plan
+        # and manual) is chosen; unplugging after that returns to the cheapest plan. Stored with the
+        # select entity, so an unplug while Home Assistant was down is noticed too.
         self.now_seen_connected = False
+        # Confirmation on the phone: on/off, and since when a new plan waits for an answer.
+        self.confirm_enabled = False
+        self.awaiting_since: datetime | None = None
         self.trip = TripState()
         self.result = PlanResult(None, None, None, None, None, None)
         self.schedule = Schedule()
@@ -136,6 +143,8 @@ class ChargePlanner:
         self.controller = Controller(start_delay=timedelta(seconds=START_DELAY_SECONDS))
         self._hold_until: datetime | None = None
         self._recheck: CALLBACK_TYPE | None = None
+        self._notify_pending = False
+        self.notify = PhoneNotifier(hass, entry)
         self._guessed: vehicles.Vehicle | None = None
         self._started_at: datetime | None = None
         self._listeners: list[Callable[[], None]] = []
@@ -226,6 +235,7 @@ class ChargePlanner:
             watched.extend(self.backend.entities)
         self._unsubs.append(async_track_state_change_event(self.hass, list(dict.fromkeys(watched)), self._on_state))
         self._unsubs.append(async_track_time_interval(self.hass, self._on_tick, timedelta(minutes=1)))
+        self._unsubs.append(self.notify.async_listen(self))
         self.async_recalculate()
 
     @callback
@@ -272,9 +282,11 @@ class ChargePlanner:
 
     @callback
     def async_set_mode(self, mode: str, restore: bool = False) -> None:
-        if mode == MODE_NOW and self.mode != MODE_NOW and not restore:
-            self.mode_before_now = self.mode
+        if mode != self.mode and not restore:
+            if mode == MODE_NOW:
+                self.mode_before_now = self.mode
             self.now_seen_connected = False
+            self.awaiting_since = None  # choosing a plan answers a pending confirmation
         self.mode = mode
         self._hold_until = None
         if not restore:
@@ -307,6 +319,23 @@ class ChargePlanner:
         self.trip.last_lookup = dt_util.utcnow()
         self.entry.async_create_background_task(
             self.hass, self._async_lookup(self.trip.destination), "ev_smart_charge_route")
+
+    @callback
+    def async_set_confirm(self, enabled: bool) -> None:
+        self.confirm_enabled = enabled
+        if not enabled:
+            self.awaiting_since = None
+        self.async_recalculate()
+
+    @callback
+    def async_answer(self, mode: str) -> None:
+        """An answer from the phone or the card: confirm the cheapest plan, charge now or pause."""
+        self.awaiting_since = None
+        if mode != self.mode:
+            self.async_set_mode(mode)
+        else:
+            self.async_recalculate()
+        self.entry.async_create_background_task(self.hass, self.notify.async_clear(), "ev_smart_charge_notify_clear")
 
     @callback
     def async_clear_trip(self) -> None:
@@ -415,13 +444,18 @@ class ChargePlanner:
             self.car_present = self._car_present()
             event = self.controller.observe(self.charger_state, now)
             self._handle_event(event)
-            if self.mode == MODE_NOW:
+            if self.mode not in (MODE_SMART, MODE_MANUAL):
                 if self.charger_state in CONNECTED:
                     self.now_seen_connected = True
                 elif self.charger_state == ChargerState.DISCONNECTED and self.now_seen_connected:
-                    _LOGGER.debug("Car unplugged, charge now ends")
-                    self.mode = self.mode_before_now if self.mode_before_now != MODE_NOW else MODE_SMART
+                    _LOGGER.debug("Car unplugged, %s has run, back to the cheapest plan", self.mode)
+                    self.mode = MODE_SMART
                     self.now_seen_connected = False
+            if self.charger_state == ChargerState.DISCONNECTED:
+                self.awaiting_since = None
+            elif self.awaiting_since and now - self.awaiting_since >= timedelta(minutes=CONFIRM_TIMEOUT_MINUTES):
+                _LOGGER.debug("No answer on the phone, the plan runs")
+                self.awaiting_since = None
 
         slots = []
         self.price_unit = None
@@ -476,6 +510,10 @@ class ChargePlanner:
                              for mode in (MODE_NOW, MODE_SMART, MODE_FIXED, MODE_PRICE_CAP)}
 
         self._control(now)
+        if self._notify_pending:
+            self._notify_pending = False
+            self.entry.async_create_background_task(
+                self.hass, self.notify.async_send_plan(self), "ev_smart_charge_notify")
         for update in list(self._listeners):
             update()
 
@@ -486,6 +524,10 @@ class ChargePlanner:
         _LOGGER.debug("Charger event %s (mode %s)", event, self.mode)
         if event == ChargerEvent.UNPLUGGED:
             self._hold_until = None
+        elif event == ChargerEvent.PLUGGED and self.car_present and self.mode != MODE_MANUAL:
+            if self.confirm_enabled and self.notify.targets:
+                self.awaiting_since = dt_util.now()
+                self._notify_pending = True
         elif event == ChargerEvent.MANUAL_START and self.car_present and self.mode not in (MODE_NOW, MODE_MANUAL):
             # Started from the charger's app or the car: follow the user and charge now.
             self.mode_before_now, self.mode = self.mode, MODE_NOW
@@ -494,7 +536,7 @@ class ChargePlanner:
 
     def desired(self, now: datetime) -> bool:
         """Should the car charge right now according to the plan."""
-        if self.mode in (MODE_OFF, MODE_MANUAL):
+        if self.mode in (MODE_OFF, MODE_MANUAL) or self.awaiting_since:
             return False
         if self.schedule.charge_now:
             if self.charger_state == ChargerState.CHARGING and self.mode in HOLD_MODES:
@@ -538,6 +580,8 @@ class ChargePlanner:
     def _status(self, state: ChargerState, desired: bool) -> str:
         if self.mode == MODE_MANUAL:
             return STATUS_MANUAL
+        if self.awaiting_since and state in CONNECTED:
+            return STATUS_AWAITING_CONFIRMATION
         if state == ChargerState.DISCONNECTED:
             return STATUS_DISCONNECTED
         if state == ChargerState.UNKNOWN:

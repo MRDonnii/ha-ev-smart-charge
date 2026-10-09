@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Når kablet sættes i, kører Billigst; en anden plan går tilbage til Billigst, når kablet tages ud.
+- Bekræft planen på mobilen: actionable notifikation til valgte mobiler (evt. kun dem, der er
+  hjemme) med Bekræft billigst / Lad nu / Pause; uden svar kører Billigst efter 60 minutter.
+- Pris for alle planer (attributten `alternatives` på den planlagte pris).
+- Start først, når planen har ønsket opladning i 15 sekunder; et stop gentages efter 45 sekunder.
+
 ## 0.2.0
 
 - Ladeplaner pr. bil (`select.<bil>_charge_mode`): Billigst inden afgang (billigste kvarterer, også

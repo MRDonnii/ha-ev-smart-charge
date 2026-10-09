@@ -14,7 +14,9 @@
           "charger_type": "Charger control",
           "zaptec_mode_entity": "Zaptec charger mode sensor",
           "charge_switch": "Charging switch",
-          "vehicle_model": "Car model"
+          "vehicle_model": "Car model",
+          "notify_services": "Phones to confirm the plan on",
+          "notify_only_home": "Only phones that are home"
         },
         "data_description": {
           "car_device": "Pick the car's device: its battery and plug sensors and its name are filled in automatically. Add the integration once per car; several cars can share one charger.",
@@ -24,7 +26,9 @@
           "charge_switch": "A switch that starts (on) and stops (off) charging, e.g. from OCPP, Monta or Easee.",
           "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone.",
           "vehicle_model": "Automatic picks the Tesla model from the car's device and its range. Other car: enter the capacity below.",
-          "battery_capacity_kwh": "Leave empty to use the chosen model's capacity."
+          "battery_capacity_kwh": "Leave empty to use the chosen model's capacity.",
+          "notify_services": "Companion apps that get the plan as a notification with Confirm, Charge now and Pause when the car is plugged in and \"Confirm plan on phone\" is on.",
+          "notify_only_home": "Skip phones whose app does not report being home."
         }
       }
     },
@@ -53,7 +57,9 @@
           "charger_type": "Charger control",
           "zaptec_mode_entity": "Zaptec charger mode sensor",
           "charge_switch": "Charging switch",
-          "vehicle_model": "Car model"
+          "vehicle_model": "Car model",
+          "notify_services": "Phones to confirm the plan on",
+          "notify_only_home": "Only phones that are home"
         },
         "data_description": {
           "car_device": "Pick the car's device: its battery and plug sensors and its name are filled in automatically. Add the integration once per car; several cars can share one charger.",
@@ -63,7 +69,9 @@
           "charge_switch": "A switch that starts (on) and stops (off) charging, e.g. from OCPP, Monta or Easee.",
           "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone.",
           "vehicle_model": "Automatic picks the Tesla model from the car's device and its range. Other car: enter the capacity below.",
-          "battery_capacity_kwh": "Leave empty to use the chosen model's capacity."
+          "battery_capacity_kwh": "Leave empty to use the chosen model's capacity.",
+          "notify_services": "Companion apps that get the plan as a notification with Confirm, Charge now and Pause when the car is plugged in and \"Confirm plan on phone\" is on.",
+          "notify_only_home": "Skip phones whose app does not report being home."
         }
       }
     },
@@ -157,7 +165,8 @@
           "paused": "Paused",
           "starting": "Starting",
           "done": "Target reached",
-          "waiting": "Waiting for cheap power"
+          "waiting": "Waiting for cheap power",
+          "awaiting_confirmation": "Waiting for confirmation"
         }
       }
     },
@@ -227,11 +236,17 @@
     "switch": {
       "trip_round_trip": {
         "name": "Round trip"
+      },
+      "confirm_on_phone": {
+        "name": "Confirm plan on phone"
       }
     },
     "button": {
       "trip_clear": {
         "name": "Clear temporary plan"
+      },
+      "confirm_plan": {
+        "name": "Confirm plan"
       }
     },
     "binary_sensor": {
