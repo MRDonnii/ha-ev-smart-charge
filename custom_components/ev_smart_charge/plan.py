@@ -170,6 +170,9 @@ MODES = (MODE_SMART, MODE_FIXED, MODE_NOW, MODE_PRICE_CAP, MODE_OFF, MODE_MANUAL
 
 # How many days back an unknown price may be borrowed from (same clock time).
 ESTIMATE_DAYS_BACK = 7
+# A plan split into several blocks must be at least this much cheaper than the best single block;
+# every extra block is another start/stop of the charger and another wake-up of the car.
+SPLIT_MIN_SAVING = 0.05
 
 
 @dataclass(frozen=True)
@@ -357,6 +360,15 @@ def build_schedule(data: ScheduleInput, now: datetime) -> Schedule:
             need = max(need, target_kwh)
             top = max(top or 0.0, constraint.target_soc)
 
+    if data.mode in (MODE_SMART, MODE_MANUAL) and len(data.constraints) == 1 and chosen:
+        deadline = data.constraints[0].deadline
+        window = _cheapest_window([slot for slot in usable if slot.end <= deadline], need, kwh,
+                                  data.price_factor)
+        if window and not _contiguous(chosen.values()):
+            split_cost = _allocation_cost(chosen.values(), need, kwh, data.price_factor)
+            if split_cost > _allocation_cost(window, need, kwh, data.price_factor) * (1 - SPLIT_MIN_SAVING):
+                chosen = {slot.start: slot for slot in window}
+
     # Charging happens in time order and stops when the energy is in the battery.
     remaining = need
     planned: list[PlannedSlot] = []
@@ -392,3 +404,39 @@ def build_schedule(data: ScheduleInput, now: datetime) -> Schedule:
         target_soc=top,
         shortfall_kwh=round(max(shortfall, 0.0), 2),
     )
+
+
+def _contiguous(slots) -> bool:
+    ordered = sorted(slots, key=lambda slot: slot.start)
+    return all(a.end == b.start for a, b in zip(ordered, ordered[1:], strict=False))
+
+
+def _allocation_cost(slots, need: float, kwh: dict, factor: float) -> float:
+    """Cost of charging need kWh in these slots, in time order."""
+    remaining, cost = need, 0.0
+    for slot in sorted(slots, key=lambda item: item.start):
+        if remaining <= 1e-9:
+            break
+        amount = min(kwh[slot.start], remaining)
+        cost += amount * slot.price * factor
+        remaining -= amount
+    return cost
+
+
+def _cheapest_window(slots: list[TimelineSlot], need: float, kwh: dict, factor: float) -> list[TimelineSlot] | None:
+    """The cheapest run of consecutive slots that holds need kWh; the later one wins a tie."""
+    best: list[TimelineSlot] | None = None
+    best_cost = math.inf
+    for index in range(len(slots)):
+        have, run = 0.0, []
+        for slot in slots[index:]:
+            if run and run[-1].end != slot.start:
+                break
+            run.append(slot)
+            have += kwh[slot.start]
+            if have >= need - 1e-9:
+                cost = _allocation_cost(run, need, kwh, factor)
+                if cost <= best_cost + 1e-9:
+                    best, best_cost = list(run), cost
+                break
+    return best

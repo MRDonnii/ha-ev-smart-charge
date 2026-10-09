@@ -136,3 +136,13 @@ def test_cheaper_quarter_prices_can_split_the_plan():
         for i in range(40)]})
     result = schedule(soc=74, known=known, constraints=[deadline(8)])  # 3.6 kWh = two quarters
     assert len(result.blocks) == 2
+
+
+def test_small_saving_does_not_split_the_plan():
+    # two separate quarters at 1.00, the rest 1.02 -> one block is nearly as cheap
+    known = plan.parse_price_attributes({"prices": [
+        {"start": (NIGHT + timedelta(minutes=15 * i)).isoformat(),
+         "end": (NIGHT + timedelta(minutes=15 * (i + 1))).isoformat(), "price": 1.0 if i in (4, 30) else 1.02}
+        for i in range(40)]})
+    result = schedule(soc=74, known=known, constraints=[deadline(8)])
+    assert len(result.blocks) == 1
