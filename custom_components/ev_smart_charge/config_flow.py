@@ -166,7 +166,7 @@ class EvSmartChargeConfigFlow(ConfigFlow, domain=DOMAIN):
 class EvSmartChargeOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
-        current = {**self.config_entry.data, **self.config_entry.options}
+        current = dict(self.config_entry.options or self.config_entry.data)
         if user_input is not None:
             user_input = _link_car(self.hass, user_input, current)
             errors = _validate(self.hass, user_input)

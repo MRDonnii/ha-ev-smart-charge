@@ -65,3 +65,16 @@ async def test_options_switch_car(hass: HomeAssistant):
         "vehicle_model": "auto", "charger_type": "none"})
     assert result["data"]["battery_entity"] == "sensor.beta_battery"
     assert result["data"]["car_plugged_entity"] == "binary_sensor.beta_charger"
+
+
+async def test_emptied_option_stays_empty(hass: HomeAssistant):
+    hass.states.async_set("sensor.price", "1", {"prices": prices(False)})
+    first = car(hass, "Alpha", "1")
+    entry = hass.config_entries.async_get_entry((await add(hass, car_device=first))["result"].entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(result["flow_id"], {
+        "battery_entity": "sensor.alpha_battery", "price_entities": ["sensor.price"],
+        "vehicle_model": "auto", "charger_type": "none"})
+    await hass.async_block_till_done()
+    assert "car_plugged_entity" not in entry.runtime_data.options

@@ -142,7 +142,8 @@ class ChargePlanner:
 
     @property
     def options(self) -> dict:
-        return {**self.entry.data, **self.entry.options}
+        # The options flow always saves the complete set, so a field emptied there stays empty.
+        return dict(self.entry.options or self.entry.data)
 
     @property
     def battery_entity(self) -> str:
