@@ -146,3 +146,8 @@ def test_small_saving_does_not_split_the_plan():
         for i in range(40)]})
     result = schedule(soc=74, known=known, constraints=[deadline(8)])
     assert len(result.blocks) == 1
+
+
+def test_later_deadline_with_lower_target_is_ignored():
+    with_trip = schedule(soc=60, constraints=[deadline(8, 90), deadline(10, 50)])
+    assert with_trip == schedule(soc=60, constraints=[deadline(8, 90)])

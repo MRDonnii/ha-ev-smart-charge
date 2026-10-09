@@ -349,10 +349,16 @@ def build_schedule(data: ScheduleInput, now: datetime) -> Schedule:
             take(cheap, need, chronological)
         need = max(need, wall(data.min_soc))
 
+    # A later deadline that asks for no more than an earlier one is already met by it.
+    constraints: list[Constraint] = []
+    for constraint in sorted(data.constraints, key=lambda item: item.deadline):
+        if not constraints or constraint.target_soc > max(item.target_soc for item in constraints):
+            constraints.append(constraint)
+
     shortfall = 0.0
     top = data.target_soc if data.mode != MODE_PRICE_CAP or data.price_cap is not None else data.min_soc
     if data.mode != MODE_NOW:
-        for constraint in sorted(data.constraints, key=lambda item: item.deadline):
+        for constraint in constraints:
             target_kwh = wall(constraint.target_soc)
             before = [slot for slot in usable if slot.end <= constraint.deadline]
             take(before, target_kwh, cheapest, constraint.deadline)
@@ -360,8 +366,8 @@ def build_schedule(data: ScheduleInput, now: datetime) -> Schedule:
             need = max(need, target_kwh)
             top = max(top or 0.0, constraint.target_soc)
 
-    if data.mode in (MODE_SMART, MODE_MANUAL) and len(data.constraints) == 1 and chosen:
-        deadline = data.constraints[0].deadline
+    if data.mode in (MODE_SMART, MODE_MANUAL) and len(constraints) == 1 and chosen:
+        deadline = constraints[0].deadline
         window = _cheapest_window([slot for slot in usable if slot.end <= deadline], need, kwh,
                                   data.price_factor)
         if window and not _contiguous(chosen.values()):
