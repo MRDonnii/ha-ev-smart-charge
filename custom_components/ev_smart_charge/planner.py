@@ -10,17 +10,20 @@ from datetime import datetime, time, timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
 
-from . import trip
+from . import trip, vehicles
 from .charger import ChargerBackend, create_backend
 from .const import (
     CONF_BATTERY_ENTITY,
     CONF_CAPACITY,
     CONF_CAR_PLUGGED_ENTITY,
     CONF_PRICE_ENTITIES,
+    CONF_VEHICLE_MODEL,
     DEFAULT_CAPACITY,
     DEFAULT_CONSUMPTION,
     DEFAULT_EFFICIENCY,
@@ -47,6 +50,7 @@ from .const import (
     STATUS_STOPPED_EXTERNALLY,
     STATUS_UNKNOWN,
     STATUS_WAITING,
+    VEHICLE_AUTO,
 )
 from .control import CONNECTED, Action, ChargerState, Controller
 from .control import Event as ChargerEvent
@@ -129,6 +133,7 @@ class ChargePlanner:
         self.backend: ChargerBackend | None = None
         self.controller = Controller()
         self._hold_until: datetime | None = None
+        self._guessed: vehicles.Vehicle | None = None
         self._started_at: datetime | None = None
         self._listeners: list[Callable[[], None]] = []
         self._unsubs: list[CALLBACK_TYPE] = []
@@ -153,7 +158,43 @@ class ChargePlanner:
 
     @property
     def capacity(self) -> float:
-        return float(self.options.get(CONF_CAPACITY, DEFAULT_CAPACITY))
+        if self.options.get(CONF_CAPACITY):
+            return float(self.options[CONF_CAPACITY])
+        return self.vehicle.capacity_kwh if self.vehicle else DEFAULT_CAPACITY
+
+    @property
+    def vehicle(self) -> vehicles.Vehicle | None:
+        """The chosen model, or for "automatic" the one that fits the car's device and range."""
+        choice = self.options.get(CONF_VEHICLE_MODEL, VEHICLE_AUTO)
+        if choice != VEHICLE_AUTO:
+            return vehicles.get(choice)
+        if self._guessed is not None:
+            return self._guessed
+        vehicle, certain = self._guess_vehicle()
+        if certain:
+            self._guessed = vehicle  # range and battery level were known: keep it
+        return vehicle
+
+    def _guess_vehicle(self) -> tuple[vehicles.Vehicle | None, bool]:
+        registry = er.async_get(self.hass)
+        entry = registry.async_get(self.battery_entity)
+        device = dr.async_get(self.hass).async_get(entry.device_id) if entry and entry.device_id else None
+        if device is None:
+            return None, True
+        range_km = None
+        for sibling in er.async_entries_for_device(registry, entry.device_id):
+            if sibling.domain == "sensor" and sibling.entity_id.endswith("_range"):
+                state = self.hass.states.get(sibling.entity_id)
+                try:
+                    range_km = float(state.state) if state else None
+                except (TypeError, ValueError):
+                    range_km = None
+                if range_km is not None and state.attributes.get("unit_of_measurement") == "mi":
+                    range_km *= 1.609344
+                break
+        soc = self._battery_soc()
+        vehicle = vehicles.guess(device.model, range_km, soc)
+        return vehicle, vehicle is None or (range_km is not None and soc is not None and soc >= 20)
 
     @property
     def ready_by(self) -> time:

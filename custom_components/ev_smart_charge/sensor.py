@@ -135,6 +135,10 @@ class PlanSensor(EvSmartChargeListenerEntity, SensorEntity):
                 "controls_charger": planner.controls_charger,
                 "car_plugged_in": planner.car_present if planner.controls_charger else None,
                 "trip_active": planner.trip_active,
+                "vehicle_model": planner.vehicle.key if planner.vehicle else None,
+                "vehicle_name": planner.vehicle.name if planner.vehicle else None,
+                "vehicle_body": planner.vehicle.body if planner.vehicle else None,
+                "battery_capacity_kwh": planner.capacity,
             }
         if key == "next_charge_start":
             schedule = planner.schedule

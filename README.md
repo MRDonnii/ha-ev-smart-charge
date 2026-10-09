@@ -15,20 +15,23 @@ men den kan bruges alene.
 2. Installer **EV Smart Charge** og genstart Home Assistant.
 3. **Indstillinger → Enheder & tjenester → Tilføj integration → EV Smart Charge**.
 4. Vælg:
-   - **Navn**, fx bilens navn. Det bliver præfiks på entiteterne.
-   - **Batteriniveau (%)**, fx bilens `sensor.<bil>_battery`.
+   - **Bil**: bilens enhed, fx fra Tesla-integrationen. Batterisensor, stik-sensor og navn udfyldes
+     selv. Uden en enhed vælges **Batteriniveau (%)** og evt. **Bilens tilslutnings-sensor** i hånden.
+   - **Navn** (valgfrit), ellers bilens navn. Det bliver præfiks på entiteterne.
    - **Elpris-sensorer**: pris for i dag og, hvis den ligger i en separat entity, pris for i morgen.
-   - **Brugbar batterikapacitet** i kWh (Model 3 RWD ≈ 57,5, Long Range ≈ 75).
+   - **Bilmodel**: *Automatisk* finder Tesla-modellen ud fra bilens enhed og rækkevidden pr. %
+     (fx Model 3 RWD). Alle Tesla-modeller kan også vælges direkte; modellen giver batterikapacitet og
+     forbrug. *Anden bil*: angiv kapaciteten.
+   - **Brugbar batterikapacitet** (valgfri) overskriver modellens kapacitet.
    - **Styring af laderen** (valgfri, kan også sættes senere under **Konfigurer**):
      - *Zaptec*: vælg laderens "Charger mode"-sensor fra Zaptec-integrationen. Ladekontakten og
        godkend-knappen findes selv. Kræver "Authorisation required" i Zaptec Portal, hvis laderen
        ikke må starte af sig selv.
      - *Kontakt*: en kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP,
        Monta eller Easee.
-   - **Bilens tilslutnings-sensor** (valgfri), fx `binary_sensor.<bil>_charger`. Er den slukket,
-     står en anden bil i laderen, og så røres laderen ikke.
 
-Én bil pr. opsætning. Har man to biler, tilføjer man integrationen to gange.
+Én bil pr. opsætning. Har man flere biler, tilføjer man integrationen én gang pr. bil. Bilerne kan
+dele samme lader: hver bil styrer kun laderen, når dens egen stik-sensor siger, at den er tilsluttet.
 
 ## Entiteter
 

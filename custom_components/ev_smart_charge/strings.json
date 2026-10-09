@@ -5,20 +5,26 @@
         "title": "EV smart charge plan",
         "description": "Pick the car's battery sensor (%) and one or more electricity price sensors that carry a price list in their attributes (e.g. Strømligning, Nord Pool or Energi Data Service). Charger control is optional.",
         "data": {
-          "name": "Name (e.g. the car's name)",
+          "name": "Name (empty: the car's name)",
+          "car_device": "Car",
           "battery_entity": "Battery level (%)",
+          "car_plugged_entity": "Car plugged-in sensor",
           "price_entities": "Price sensors (today and tomorrow)",
-          "battery_capacity_kwh": "Usable battery capacity",
+          "battery_capacity_kwh": "Usable battery capacity (optional)",
           "charger_type": "Charger control",
           "zaptec_mode_entity": "Zaptec charger mode sensor",
           "charge_switch": "Charging switch",
-          "car_plugged_entity": "Car plugged-in sensor (optional)"
+          "vehicle_model": "Car model"
         },
         "data_description": {
+          "car_device": "Pick the car's device: its battery and plug sensors and its name are filled in automatically. Add the integration once per car; several cars can share one charger.",
+          "battery_entity": "Filled in from the car when left empty.",
           "charger_type": "Without charger control the integration only calculates the plan.",
           "zaptec_mode_entity": "The charger's \"Charger mode\" sensor from the Zaptec integration. The charging switch and the authorise button on the same charger are found automatically.",
           "charge_switch": "A switch that starts (on) and stops (off) charging, e.g. from OCPP, Monta or Easee.",
-          "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone."
+          "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone.",
+          "vehicle_model": "Automatic picks the Tesla model from the car's device and its range. Other car: enter the capacity below.",
+          "battery_capacity_kwh": "Leave empty to use the chosen model's capacity."
         }
       }
     },
@@ -27,7 +33,8 @@
       "no_prices": "None of the sensors has a price list in its attributes.",
       "required_for_zaptec": "Pick the Zaptec charger mode sensor.",
       "zaptec_switch_missing": "No charging switch was found on this Zaptec charger.",
-      "required_for_switch": "Pick the charging switch."
+      "required_for_switch": "Pick the charging switch.",
+      "battery_required": "Pick the car or its battery level sensor."
     },
     "abort": {
       "already_configured": "This car is already configured."
@@ -38,19 +45,25 @@
       "init": {
         "title": "EV smart charge plan",
         "data": {
+          "car_device": "Car",
           "battery_entity": "Battery level (%)",
+          "car_plugged_entity": "Car plugged-in sensor",
           "price_entities": "Price sensors (today and tomorrow)",
-          "battery_capacity_kwh": "Usable battery capacity",
+          "battery_capacity_kwh": "Usable battery capacity (optional)",
           "charger_type": "Charger control",
           "zaptec_mode_entity": "Zaptec charger mode sensor",
           "charge_switch": "Charging switch",
-          "car_plugged_entity": "Car plugged-in sensor (optional)"
+          "vehicle_model": "Car model"
         },
         "data_description": {
+          "car_device": "Pick the car's device: its battery and plug sensors and its name are filled in automatically. Add the integration once per car; several cars can share one charger.",
+          "battery_entity": "Filled in from the car when left empty.",
           "charger_type": "Without charger control the integration only calculates the plan.",
           "zaptec_mode_entity": "The charger's \"Charger mode\" sensor from the Zaptec integration. The charging switch and the authorise button on the same charger are found automatically.",
           "charge_switch": "A switch that starts (on) and stops (off) charging, e.g. from OCPP, Monta or Easee.",
-          "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone."
+          "car_plugged_entity": "The car's own plug sensor. When it is off, another car is at the charger and the charger is left alone.",
+          "vehicle_model": "Automatic picks the Tesla model from the car's device and its range. Other car: enter the capacity below.",
+          "battery_capacity_kwh": "Leave empty to use the chosen model's capacity."
         }
       }
     },
@@ -59,7 +72,8 @@
       "no_prices": "None of the sensors has a price list in its attributes.",
       "required_for_zaptec": "Pick the Zaptec charger mode sensor.",
       "zaptec_switch_missing": "No charging switch was found on this Zaptec charger.",
-      "required_for_switch": "Pick the charging switch."
+      "required_for_switch": "Pick the charging switch.",
+      "battery_required": "Pick the car or its battery level sensor."
     }
   },
   "selector": {

@@ -155,3 +155,21 @@ async def test_trip_with_coordinates(hass: HomeAssistant, request, aioclient_moc
     await hass.services.async_call("button", "press", {"entity_id": "button.bil_clear_temporary_plan"},
                                    blocking=True)
     assert state(hass, "datetime.bil_temporary_departure") == "unknown"
+
+
+async def test_vehicle_model_is_guessed_from_the_car(hass: HomeAssistant, request):
+    car = MockConfigEntry(domain="tesla_custom")
+    car.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(config_entry_id=car.entry_id, identifiers={("tesla_custom", "1")},
+                                                    manufacturer="Tesla", model="Model 3")
+    registry = er.async_get(hass)
+    registry.async_get_or_create("sensor", "tesla_custom", "vin_battery", device_id=device.id, config_entry=car,
+                                 suggested_object_id="car_battery")
+    registry.async_get_or_create("sensor", "tesla_custom", "vin_range", device_id=device.id, config_entry=car,
+                                 suggested_object_id="car_range")
+    hass.states.async_set("sensor.car_range", "307.6", {"unit_of_measurement": "km"})
+    entry, _ = await setup(hass, request, charger=False, soc="75")
+    attrs = hass.states.get("sensor.bil_charge_status").attributes
+    assert attrs["vehicle_model"] == "model_3_rwd"
+    assert attrs["vehicle_body"] == "model_3"
+    assert attrs["battery_capacity_kwh"] == 60  # the configured capacity still wins

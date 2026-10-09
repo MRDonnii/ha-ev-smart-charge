@@ -5,20 +5,26 @@
         "title": "Smart ladeplan",
         "description": "Vælg bilens batterisensor (%) og en eller flere elpris-sensorer med prisliste i attributterne (fx Strømligning, Nord Pool eller Energi Data Service). Styring af laderen er valgfri.",
         "data": {
-          "name": "Navn (fx bilens navn)",
+          "name": "Navn (tomt: bilens navn)",
+          "car_device": "Bil",
           "battery_entity": "Batteriniveau (%)",
+          "car_plugged_entity": "Bilens tilslutnings-sensor",
           "price_entities": "Elpris-sensorer (i dag og i morgen)",
-          "battery_capacity_kwh": "Brugbar batterikapacitet",
+          "battery_capacity_kwh": "Brugbar batterikapacitet (valgfri)",
           "charger_type": "Styring af laderen",
           "zaptec_mode_entity": "Zaptec-laderens tilstandssensor",
           "charge_switch": "Ladekontakt",
-          "car_plugged_entity": "Bilens tilslutnings-sensor (valgfri)"
+          "vehicle_model": "Bilmodel"
         },
         "data_description": {
+          "car_device": "Vælg bilens enhed: batteri- og stik-sensor og navn udfyldes selv. Tilføj integrationen én gang pr. bil; flere biler kan dele samme lader.",
+          "battery_entity": "Udfyldes fra bilen, hvis feltet er tomt.",
           "charger_type": "Uden styring beregner integrationen kun planen.",
           "zaptec_mode_entity": "Laderens sensor \"Charger mode\" fra Zaptec-integrationen. Ladekontakten og godkend-knappen på samme lader findes automatisk.",
           "charge_switch": "En kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP, Monta eller Easee.",
-          "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke."
+          "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke.",
+          "vehicle_model": "Automatisk vælger Tesla-modellen ud fra bilens enhed og rækkevidde. Anden bil: angiv kapaciteten herunder.",
+          "battery_capacity_kwh": "Lad feltet stå tomt for at bruge modellens kapacitet."
         }
       }
     },
@@ -27,7 +33,8 @@
       "no_prices": "Ingen af sensorerne har en prisliste i attributterne.",
       "required_for_zaptec": "Vælg Zaptec-laderens tilstandssensor.",
       "zaptec_switch_missing": "Der blev ikke fundet en ladekontakt på denne Zaptec-lader.",
-      "required_for_switch": "Vælg ladekontakten."
+      "required_for_switch": "Vælg ladekontakten.",
+      "battery_required": "Vælg bilen eller dens batterisensor."
     },
     "abort": {
       "already_configured": "Denne bil er allerede sat op."
@@ -38,19 +45,25 @@
       "init": {
         "title": "Smart ladeplan",
         "data": {
+          "car_device": "Bil",
           "battery_entity": "Batteriniveau (%)",
+          "car_plugged_entity": "Bilens tilslutnings-sensor",
           "price_entities": "Elpris-sensorer (i dag og i morgen)",
-          "battery_capacity_kwh": "Brugbar batterikapacitet",
+          "battery_capacity_kwh": "Brugbar batterikapacitet (valgfri)",
           "charger_type": "Styring af laderen",
           "zaptec_mode_entity": "Zaptec-laderens tilstandssensor",
           "charge_switch": "Ladekontakt",
-          "car_plugged_entity": "Bilens tilslutnings-sensor (valgfri)"
+          "vehicle_model": "Bilmodel"
         },
         "data_description": {
+          "car_device": "Vælg bilens enhed: batteri- og stik-sensor og navn udfyldes selv. Tilføj integrationen én gang pr. bil; flere biler kan dele samme lader.",
+          "battery_entity": "Udfyldes fra bilen, hvis feltet er tomt.",
           "charger_type": "Uden styring beregner integrationen kun planen.",
           "zaptec_mode_entity": "Laderens sensor \"Charger mode\" fra Zaptec-integrationen. Ladekontakten og godkend-knappen på samme lader findes automatisk.",
           "charge_switch": "En kontakt, der starter (tændt) og stopper (slukket) opladningen, fx fra OCPP, Monta eller Easee.",
-          "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke."
+          "car_plugged_entity": "Bilens egen stik-sensor. Er den slukket, står en anden bil i laderen, og så røres laderen ikke.",
+          "vehicle_model": "Automatisk vælger Tesla-modellen ud fra bilens enhed og rækkevidde. Anden bil: angiv kapaciteten herunder.",
+          "battery_capacity_kwh": "Lad feltet stå tomt for at bruge modellens kapacitet."
         }
       }
     },
@@ -59,7 +72,8 @@
       "no_prices": "Ingen af sensorerne har en prisliste i attributterne.",
       "required_for_zaptec": "Vælg Zaptec-laderens tilstandssensor.",
       "zaptec_switch_missing": "Der blev ikke fundet en ladekontakt på denne Zaptec-lader.",
-      "required_for_switch": "Vælg ladekontakten."
+      "required_for_switch": "Vælg ladekontakten.",
+      "battery_required": "Vælg bilen eller dens batterisensor."
     }
   },
   "selector": {

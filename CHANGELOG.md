@@ -14,6 +14,10 @@
   sikkerhedsmargin og reserve. Planen ryddes selv, når afgangen er passeret.
 - Ukendte priser (fx morgendagens før kl. 13) skønnes ud fra samme klokkeslæt dagen før, så planen
   altid kan nå målet inden afgang.
+- Bilvalg i opsætningen: vælg bilens enhed, så batteri- og stik-sensor og navn kobles på selv.
+  Flere biler kan dele én lader.
+- Katalog med alle Tesla-modeller (Model 3/Y/S/X i alle varianter, Cybertruck, Roadster) med
+  batterikapacitet og forbrug. *Automatisk* vælger model ud fra bilens enhed og rækkevidde pr. %.
 - Nye sensorer: ladestatus, næste ladestart/-slut, planlagt pris og energi, planens mål-SOC, turens
   afstand, energi og krævede SOC, samt `binary_sensor.<bil>_charge_now` til egne automationer.
 
