@@ -31,7 +31,7 @@ def prices(cheap_now: bool) -> list[dict]:
 
 
 async def setup(hass: HomeAssistant, request, charger_state="connected_finished", charger=True, cheap_now=True,
-                soc="50"):
+                soc="50", grace=0):
     hass.states.async_set("sensor.car_battery", soc)
     hass.states.async_set("sensor.price", "1.0", {"prices": prices(cheap_now), "unit_of_measurement": "kr/kWh"})
     options = {"battery_entity": "sensor.car_battery", "price_entities": ["sensor.price"],
@@ -60,9 +60,11 @@ async def setup(hass: HomeAssistant, request, charger_state="connected_finished"
     request.addfinalizer(patcher.stop)
     entry = MockConfigEntry(domain=DOMAIN, title="Bil", data=options, unique_id="sensor.car_battery")
     entry.add_to_hass(hass)
-    with patch.object(planner_module, "STARTUP_GRACE_SECONDS", 0):
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
+    grace_patch = patch.object(planner_module, "STARTUP_GRACE_SECONDS", grace)
+    grace_patch.start()
+    request.addfinalizer(grace_patch.stop)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
     return entry, calls
 
 

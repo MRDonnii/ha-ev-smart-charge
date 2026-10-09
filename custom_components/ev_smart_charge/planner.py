@@ -48,7 +48,7 @@ from .const import (
     STATUS_UNKNOWN,
     STATUS_WAITING,
 )
-from .control import Action, ChargerState, Controller
+from .control import CONNECTED, Action, ChargerState, Controller
 from .control import Event as ChargerEvent
 from .plan import (
     MODE_FIXED,
@@ -75,6 +75,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLUGGED_STATES = (STATE_ON, "true", "plugged", "connected", "plugged_in")
 HOLD_MODES = (MODE_SMART, MODE_FIXED, MODE_PRICE_CAP)
+LOOKUP_RETRY = timedelta(minutes=5)
 
 
 @dataclass
@@ -85,6 +86,7 @@ class TripState:
     route: trip.Route | None = None
     error: str | None = None
     looking_up: bool = False
+    last_lookup: datetime | None = None
 
 
 class ChargePlanner:
@@ -111,6 +113,9 @@ class ChargePlanner:
         }
         self.mode = MODE_SMART
         self.mode_before_now = MODE_SMART
+        # Set once the charger has been connected while in "charge now"; a disconnect after that ends it.
+        # Stored with the select entity, so an unplug while Home Assistant was down is noticed too.
+        self.now_seen_connected = False
         self.trip = TripState()
         self.result = PlanResult(None, None, None, None, None, None)
         self.schedule = Schedule()
@@ -189,6 +194,11 @@ class ChargePlanner:
 
     @callback
     def _on_tick(self, _now) -> None:
+        trip_state = self.trip
+        if (trip_state.destination and trip_state.route is None and not trip_state.looking_up
+                and trip_state.error == "lookup_failed" and trip_state.last_lookup
+                and dt_util.utcnow() - trip_state.last_lookup >= LOOKUP_RETRY):
+            self._start_lookup()
         self.async_recalculate()
 
     # -- setters used by the entities ----------------------------------------------------------
@@ -211,6 +221,7 @@ class ChargePlanner:
     def async_set_mode(self, mode: str, restore: bool = False) -> None:
         if mode == MODE_NOW and self.mode != MODE_NOW and not restore:
             self.mode_before_now = self.mode
+            self.now_seen_connected = False
         self.mode = mode
         self._hold_until = None
         if not restore:
@@ -228,15 +239,21 @@ class ChargePlanner:
         self.async_recalculate()
 
     @callback
-    def async_set_trip_destination(self, value: str) -> None:
+    def async_set_trip_destination(self, value: str, route: trip.Route | None = None) -> None:
+        """Set the destination. A route restored from before a restart is used as is, without a lookup."""
         self.trip.destination = (value or "").strip()
-        self.trip.route = None
+        self.trip.route = route
         self.trip.error = None
-        if self.trip.destination:
-            self.trip.looking_up = True
-            self.entry.async_create_background_task(
-                self.hass, self._async_lookup(self.trip.destination), "ev_smart_charge_route")
+        if self.trip.destination and route is None:
+            self._start_lookup()
         self.async_recalculate()
+
+    @callback
+    def _start_lookup(self) -> None:
+        self.trip.looking_up = True
+        self.trip.last_lookup = dt_util.utcnow()
+        self.entry.async_create_background_task(
+            self.hass, self._async_lookup(self.trip.destination), "ev_smart_charge_route")
 
     @callback
     def async_clear_trip(self) -> None:
@@ -345,6 +362,13 @@ class ChargePlanner:
             self.car_present = self._car_present()
             event = self.controller.observe(self.charger_state, now)
             self._handle_event(event)
+            if self.mode == MODE_NOW:
+                if self.charger_state in CONNECTED:
+                    self.now_seen_connected = True
+                elif self.charger_state == ChargerState.DISCONNECTED and self.now_seen_connected:
+                    _LOGGER.debug("Car unplugged, charge now ends")
+                    self.mode = self.mode_before_now if self.mode_before_now != MODE_NOW else MODE_SMART
+                    self.now_seen_connected = False
 
         slots = []
         self.price_unit = None
@@ -401,11 +425,10 @@ class ChargePlanner:
         _LOGGER.debug("Charger event %s (mode %s)", event, self.mode)
         if event == ChargerEvent.UNPLUGGED:
             self._hold_until = None
-            if self.mode == MODE_NOW:
-                self.mode = self.mode_before_now if self.mode_before_now != MODE_NOW else MODE_SMART
         elif event == ChargerEvent.MANUAL_START and self.car_present and self.mode not in (MODE_NOW, MODE_MANUAL):
             # Started from the charger's app or the car: follow the user and charge now.
             self.mode_before_now, self.mode = self.mode, MODE_NOW
+            self.now_seen_connected = True
             self.controller.last_desired = True
 
     def desired(self, now: datetime) -> bool:
@@ -432,6 +455,10 @@ class ChargePlanner:
         state = self.charger_state
         self.status = self._status(state, desired)
         if self.mode == MODE_MANUAL or not self.car_present:
+            return
+        if self.mode != MODE_NOW and (self._battery_soc() is None or not self.slot_count):
+            # Right after a restart the car or the price sensor may not be loaded yet: leave the
+            # charger as it is instead of acting on a plan made without them.
             return
         if self._started_at and (dt_util.utcnow() - self._started_at).total_seconds() < STARTUP_GRACE_SECONDS:
             return
