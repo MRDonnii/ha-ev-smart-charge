@@ -146,4 +146,6 @@ der reagerer på `binary_sensor.gokart_charge_now`.
 
 ## Licens
 
-MIT
+Fra og med versionen efter v0.3.1 er koden udgivet under [PolyForm Noncommercial License 1.0.0](LICENSE) (SPDX: `PolyForm-Noncommercial-1.0.0`). Den er gratis til ikke-kommerciel brug: privat, i hjemmet, som hobby, i undervisning og i almennyttige foreninger. Kommerciel brug kræver skriftlig tilladelse fra forfatteren, [MRDonnii](https://github.com/MRDonnii).
+
+Versioner udgivet før denne ændring (til og med v0.3.1) er fortsat under deres hidtidige licens (MIT) for netop de versioner.
